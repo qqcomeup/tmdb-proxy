@@ -2,13 +2,13 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+COPY package.json ./
 RUN npm install --production
 
 COPY . .
 
 RUN npm install -g vercel
 
-EXPOSE 6000
+EXPOSE 3000
 
-CMD ["vercel", "dev", "--listen", "0.0.0.0:6000", "--debug"]
+CMD ["vercel", "dev", "--listen", "0.0.0.0:3000", "--debug"]
