@@ -3,7 +3,7 @@
     "redirects": [
         {
             "source": "/",
-            "destination": "https://github.com/imaliang/tmdb-proxy",
+            "destination": "https://baidu.com",
             "permanent": true
         }
     ],
