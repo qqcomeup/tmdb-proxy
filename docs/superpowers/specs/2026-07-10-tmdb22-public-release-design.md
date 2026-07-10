@@ -2,7 +2,7 @@
 
 ## 目标
 
-将 `/home/dev/桌面/tmdb2026/tmdb22` 中验证通过的 v2.6.1 升级发布到现有公开仓库 `qqcomeup/tmdb-proxy`，继续由 GitHub Actions 构建并推送 `ghcr.io/qqcomeup/tmdb-proxy:latest`。
+将 `/home/dev/桌面/tmdb2026/tmdb22` 中验证通过的 v2.6.1 升级发布到现有公开仓库 `qqcomeup/tmdb-proxy`，继续由 GitHub Actions 构建并推送 `ghcr.io/qqcomeup/tmdb-proxy:latest`。同一个镜像标签同时支持 `linux/amd64` 和 `linux/arm64`。
 
 ## 发布方式
 
@@ -19,6 +19,12 @@
 - Docker 运行用户保持 `65532:65532`，基础运行镜像使用 Node.js 22 Distroless Debian 13。
 - `docker-compose.yml` 默认拉取 `ghcr.io/qqcomeup/tmdb-proxy:latest`，并继续要求设置 `TMDB_API_KEY` 和 `ADMIN_API_KEY`。
 
+## 多架构镜像
+
+GitHub Actions 使用 Docker Buildx 和 QEMU，在一个构建任务中生成 `linux/amd64`、`linux/arm64` 两个平台，并将它们合并为同一个 GHCR 多架构清单。部署命令和 Compose 镜像地址保持不变，Docker 根据服务器 CPU 架构自动拉取正确镜像。
+
+本项目没有原生依赖且镜像较小，采用单任务跨架构构建最简单。暂不使用两台原生架构 Runner 分别构建再合并清单的复杂方案。
+
 ## 文档
 
 README 以中文为主，提供两种互斥的简化配置方法：直接在 Compose 中填写密钥，或使用仓库 Compose 配合 `.env`。文档说明 `COOKIE_SECURE` 在 HTTPS 与纯 HTTP 部署下的取值，并列出主要可选缓存和重试参数。
@@ -32,7 +38,7 @@ README 以中文为主，提供两种互斥的简化配置方法：直接在 Com
 3. Docker Compose 配置展开验证。
 4. 仓库公开发布校验脚本。
 5. 对整个待提交目录执行敏感信息扫描，确认没有真实 TMDB 密钥、管理密码、SSH 私钥、GitHub Token 或历史备份文件。
-6. 推送后等待 GitHub Actions 成功，并确认 GHCR `latest` 镜像已更新。
+6. 推送后等待 GitHub Actions 成功，确认 GHCR `latest` 镜像已更新，并检查镜像清单同时包含 `linux/amd64` 和 `linux/arm64`。
 
 ## 不在本次范围内
 
