@@ -168,6 +168,7 @@
         </div>
         <div class="panel-actions">
           <button id="btn_refresh" class="chip-btn" aria-label="立即刷新">立即刷新</button>
+          <button id="btn_clear_cache" class="chip-btn danger" aria-label="清除全部缓存">清除缓存</button>
           <button id="btn_theme" class="chip-btn" aria-label="切换风格">风格：星云</button>
           <button id="btn_changebg" class="chip-btn" aria-label="切换背景">切换背景</button>
           <button id="btn_logout" class="chip-btn danger" aria-label="退出登录">退出登录</button>
@@ -272,6 +273,7 @@
     const btnScroll = document.getElementById('btn_scroll');
     const btnPause = document.getElementById('btn_pause');
     const btnRefresh = document.getElementById('btn_refresh');
+    const btnClearCache = document.getElementById('btn_clear_cache');
     const btnTheme = document.getElementById('btn_theme');
     const btnLogout = document.getElementById('btn_logout');
     const metricAlert = document.getElementById('metric_alert');
@@ -664,6 +666,22 @@
     btn.addEventListener('click', login);
     keyInput.addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
     btnRefresh.addEventListener('click', () => loadDashboard({ force: true }));
+    btnClearCache.addEventListener('click', async () => {
+      if (!confirm('确定清除全部缓存吗？')) return;
+      const originalText = btnClearCache.textContent;
+      btnClearCache.disabled = true;
+      btnClearCache.textContent = '清除中...';
+      try {
+        await fetchJSON('/admin/clear-cache?type=all', { method: 'POST' });
+        await loadDashboard({ force: true });
+      } catch (e) {
+        console.error('清除缓存失败', e);
+        setConnection('danger', e.message || '清除缓存失败');
+      } finally {
+        btnClearCache.disabled = false;
+        btnClearCache.textContent = originalText;
+      }
+    });
     btnTheme.addEventListener('click', () => {
       const current = document.documentElement.dataset.theme || THEMES[0][0];
       const idx = THEMES.findIndex(([key]) => key === current);

@@ -76,6 +76,13 @@ assert.strictEqual(_internals.isSafeImagePath('/t/p/w500/abc.jpg?x=1'), false);
 assert.strictEqual(_internals.isSafeImagePath('/t/p/original/%2e%2e/server.js'), false);
 assert.strictEqual(_internals.isSafeImagePath('/x/p/w500/abc.jpg'), false);
 
+const dashboardHtml = fs.readFileSync(path.join(__dirname, 'admin-dashboard.html'), 'utf8');
+assert.match(dashboardHtml, /<button\b[^>]*\bid=["']btn_clear_cache["']/);
+assert.match(
+  dashboardHtml,
+  /fetchJSON\(\s*["']\/admin\/clear-cache\?type=all["']\s*,\s*\{\s*method\s*:\s*["']POST["']\s*}\s*\)/
+);
+
 const lru = new _internals.LRUCache(5);
 lru.set('a', Buffer.from('aaa'), 'text/plain');
 lru.set('b', Buffer.from('bbb'), 'text/plain');
