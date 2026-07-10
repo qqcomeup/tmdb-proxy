@@ -119,6 +119,29 @@
     .chip-btn.off{background:rgba(148,163,184,.16);color:#e5e7eb}
     @media (max-width:1100px){grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:205px}.log-entry{grid-template-columns:140px 64px 64px 76px minmax(0,1fr) 58px}}
     @media (max-width:760px){body{padding:14px;align-items:flex-start;background-attachment:scroll}main{max-width:100%}.welcome{display:block;padding:18px}.welcome h2{font-size:24px}.panel-actions{justify-content:flex-start;margin-top:16px}grid{grid-template-columns:1fr;grid-auto-rows:auto}grid > card{min-height:150px}.logs{height:50vh;max-height:50vh}.log-entry{grid-template-columns:1fr;align-items:stretch}.log-time,.log-pill{text-align:left}.log-copy{width:max-content}.login{padding:24px;border-radius:24px}.login-header{align-items:flex-start}.login-sub{display:none}}
+    body{display:block;padding:0;background-color:#050607;background-position:center;background-size:cover}
+    body::before{z-index:-1;background:linear-gradient(90deg,rgba(3,5,7,.95) 0%,rgba(3,5,7,.7) 42%,rgba(3,5,7,.24) 72%,rgba(3,5,7,.52)),linear-gradient(0deg,#050607 0%,transparent 44%)}
+    body::after{z-index:-1;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.18'/%3E%3C/svg%3E");opacity:.28;mask-image:none}
+    body.drawer-open{overflow:hidden}
+    main{max-width:none;min-height:100vh}
+    #boot,#login{position:relative;top:12vh}
+    #content{min-height:100vh;padding:0 46px 120px}
+    .cinematic-shell{min-height:100vh;display:flex;flex-direction:column}
+    .topbar{height:80px;display:flex;align-items:center;gap:16px}
+    .brand{font-size:17px;font-weight:950;letter-spacing:.01em}.brand-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#5df5c5;box-shadow:0 0 18px #5df5c5;margin-right:12px}
+    .topbar-meta{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:11px;color:rgba(255,255,255,.62)}
+    .overview{flex:1;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(360px,400px);align-items:center;gap:7vw;padding:50px 0 110px}
+    .hero-copy{margin:0;max-width:650px}.hero-kicker{font-size:11px;letter-spacing:.26em;color:#84ecd0;font-weight:900}.hero-copy h2{font-size:clamp(46px,5vw,72px);line-height:1.04;letter-spacing:-.055em;margin:18px 0}.hero-copy p{font-size:15px;line-height:1.85;color:#d3d8d7;max-width:540px}.hero-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:28px}
+    .status-panel{border:1px solid rgba(255,255,255,.17);border-radius:22px;background:linear-gradient(145deg,rgba(8,11,13,.9),rgba(18,22,24,.74));backdrop-filter:blur(22px);box-shadow:0 28px 80px rgba(0,0,0,.35);padding:25px}.status-panel-head{display:flex;justify-content:space-between;align-items:center;padding-bottom:18px;border-bottom:1px solid rgba(255,255,255,.12)}.status-panel-head strong{font-size:14px}.status-panel-head span{font-size:10px;color:rgba(255,255,255,.5)}
+    .overview-stats{display:grid;grid-template-columns:1fr 1fr}.overview-stat{padding:20px 0;border-bottom:1px solid rgba(255,255,255,.11)}.overview-stat:nth-child(odd){border-right:1px solid rgba(255,255,255,.11)}.overview-stat:nth-child(even){padding-left:24px}.overview-label{font-size:11px;color:rgba(255,255,255,.5)}.overview-value{font-size:29px;font-weight:900;letter-spacing:-.04em;margin-top:8px}.overview-note{font-size:10px;color:#66e5bd;margin-top:7px}
+    .trend-line{height:70px;padding-top:17px}.trend-line svg{width:100%;height:100%}
+    .action-dock{position:fixed;z-index:20;left:50%;bottom:34px;transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:10px;border:1px solid rgba(255,255,255,.16);border-radius:20px;background:rgba(8,10,12,.88);backdrop-filter:blur(24px);box-shadow:0 22px 70px rgba(0,0,0,.55)}
+    .dock-btn{border:0;border-radius:13px;padding:14px 18px;background:transparent;color:#d6d9d8;font-size:12px;font-weight:850;white-space:nowrap;cursor:pointer}.dock-btn:hover,.dock-btn:focus-visible{background:rgba(255,255,255,.09);outline:2px solid rgba(93,245,197,.7);outline-offset:2px}.dock-btn.primary{background:#eafcf7;color:#06110e;padding-inline:24px}.dock-divider{width:1px;height:30px;background:rgba(255,255,255,.13);margin:0 4px}
+    .drawer-backdrop{display:block;position:fixed;inset:0;z-index:29;border:0;background:rgba(0,0,0,.55);opacity:0;visibility:hidden;transition:opacity .24s,visibility .24s}.drawer-backdrop.open{opacity:1;visibility:visible}
+    .details-drawer{position:fixed;z-index:30;inset:0 0 0 auto;width:min(720px,100%);padding:24px;background:#080b0e;border-left:1px solid rgba(255,255,255,.15);box-shadow:-30px 0 90px rgba(0,0,0,.55);transform:translateX(100%);transition:transform .28s ease;overflow:auto}.details-drawer.open{transform:translateX(0)}.drawer-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}.drawer-head h2{margin:0;font-size:25px}.drawer-close{border:1px solid rgba(255,255,255,.16);border-radius:12px;background:rgba(255,255,255,.06);color:white;padding:10px 13px;cursor:pointer}.drawer-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.drawer-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:16px}.drawer-card{border:1px solid rgba(255,255,255,.12);border-radius:16px;background:rgba(255,255,255,.04);padding:16px}.drawer-card value{font-size:20px}.details-drawer .log-panel{border-radius:16px}.details-drawer .logs{height:44vh;max-height:520px}.details-drawer .metric-alert{margin:0 0 14px}
+    @media (max-width:900px){#content{padding:0 24px 120px}.overview{grid-template-columns:1fr;align-content:center;gap:28px;padding:26px 0 120px}.hero-copy{max-width:720px}.status-panel{width:100%;max-width:560px}.action-dock{max-width:calc(100vw - 28px);overflow-x:auto;justify-content:flex-start}.topbar{height:68px}}
+    @media (max-width:640px){#content{padding:0 16px 110px}.overview{padding:20px 0 110px}.hero-copy h2{font-size:42px}.hero-copy p{font-size:13px}.status-panel{padding:18px}.overview-value{font-size:24px}.action-dock{bottom:16px}.dock-btn{padding:12px 14px}.details-drawer{padding:18px}.drawer-metrics{grid-template-columns:1fr}.details-drawer .log-entry{grid-template-columns:1fr}.topbar-meta .pill:not(#connection_state){display:none}}
+    @media (prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}}
   </style>
 </head>
 <body>
@@ -154,107 +177,64 @@
       <div id="msg" class="row"></div>
     </div>
     <section id="content" style="display:none">
-      <div id="metric_alert" class="metric-alert" role="status" aria-live="polite"></div>
-      <div class="welcome">
-        <div>
-          <h2>TMDB 代理监控</h2>
-          <p>实时掌握代理运行状态、缓存命中与最近访问记录</p>
-          <div class="meta-line">
+      <div class="cinematic-shell">
+        <nav class="topbar" aria-label="管理页顶部栏">
+          <div class="brand"><span class="brand-dot"></span>TMDB Proxy</div>
+          <div class="topbar-meta">
+            <span class="pill">v<span id="v_version">-</span></span>
             <span id="connection_state" class="pill warn">等待刷新</span>
-            <span class="pill">版本 <span id="v_version">-</span></span>
-            <span class="pill">运行 <span id="v_uptime">-</span></span>
-            <span class="pill">刷新 <span id="v_refreshed">-</span></span>
           </div>
+        </nav>
+        <div class="overview">
+          <section class="hero-copy">
+            <div class="hero-kicker">CINEMATIC PROXY CONSOLE</div>
+            <h2>简单、稳定，<br>让影像更快抵达。</h2>
+            <p>为 TMDB API 与图片资源提供轻量代理和智能缓存。界面只保留真正需要关注的信息，其余功能随用随开。</p>
+            <div class="hero-meta">
+              <span class="pill ok">● 服务运行正常</span>
+              <span class="pill">运行 <span id="v_uptime">-</span></span>
+              <span class="pill">刷新 <span id="v_refreshed">-</span></span>
+            </div>
+          </section>
+          <section class="status-panel" aria-label="实时状态">
+            <div class="status-panel-head"><strong>实时状态</strong><span>每 5 秒更新</span></div>
+            <div class="overview-stats">
+              <div class="overview-stat"><div class="overview-label">总请求</div><div id="v_total" class="overview-value">-</div><div class="overview-note">累计代理请求</div></div>
+              <div class="overview-stat"><div class="overview-label">缓存命中</div><div id="v_hit_rate" class="overview-value">-</div><div class="overview-note">API + 图片缓存</div></div>
+              <div class="overview-stat"><div class="overview-label">实时速率</div><div id="v_rps" class="overview-value">-</div><div class="overview-note">最近一分钟</div></div>
+              <div class="overview-stat"><div class="overview-label">错误率</div><div id="v_error_rate" class="overview-value">-</div><div id="v_err_rate" class="overview-note">请求数: 0 / min</div></div>
+            </div>
+            <div class="trend-line" aria-hidden="true"><svg viewBox="0 0 350 60" preserveAspectRatio="none"><defs><linearGradient id="trend_fill" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#67eac2" stop-opacity=".32"/><stop offset="1" stop-color="#67eac2" stop-opacity="0"/></linearGradient></defs><path d="M0 48 C30 45 40 51 70 37 S110 42 138 28 S178 37 205 22 S247 32 276 16 S320 23 350 8 L350 60 L0 60Z" fill="url(#trend_fill)"/><path d="M0 48 C30 45 40 51 70 37 S110 42 138 28 S178 37 205 22 S247 32 276 16 S320 23 350 8" fill="none" stroke="#72e8c4" stroke-width="2"/></svg></div>
+          </section>
         </div>
-        <div class="panel-actions">
-          <button id="btn_refresh" class="chip-btn" aria-label="立即刷新">立即刷新</button>
-          <button id="btn_clear_cache" class="chip-btn danger" aria-label="清除全部缓存">清除缓存</button>
-          <button id="btn_theme" class="chip-btn" aria-label="切换风格">风格：星云</button>
-          <button id="btn_changebg" class="chip-btn" aria-label="切换背景">切换背景</button>
-          <button id="btn_logout" class="chip-btn danger" aria-label="退出登录">退出登录</button>
-        </div>
+        <nav class="action-dock" aria-label="快捷操作">
+          <button id="btn_refresh" class="dock-btn" type="button">服务概览</button>
+          <button id="btn_changebg" class="dock-btn" type="button">更换背景</button>
+          <button id="btn_details" class="dock-btn" type="button" aria-controls="details_drawer" aria-expanded="false">查看日志</button>
+          <span class="dock-divider" aria-hidden="true"></span>
+          <button id="btn_clear_cache" class="dock-btn primary" type="button">清理缓存</button>
+        </nav>
       </div>
-      <grid>
-        <card class="metric-card">
-          <div class="stat-icon">REQ</div>
-          <label>总请求数</label>
-          <div class="stat-sub">累计通过代理的全部请求</div>
-          <value id="v_total">-</value>
-        </card>
-        <card class="metric-card">
-          <div class="stat-icon">API</div>
-          <label>API 请求</label>
-          <div class="stat-sub">所有 /3/* 接口调用</div>
-          <value id="v_api">-</value>
-        </card>
-        <card class="metric-card">
-          <div class="stat-icon">IMG</div>
-          <label>图片缓存命中率</label>
-          <div class="stat-sub">内存 + 磁盘命中 / 图片请求</div>
-          <value id="v_img_rate">-</value>
-          <div id="v_img_cache" class="chip-row"></div>
-        </card>
-        <card class="metric-card">
-          <div class="stat-icon">TTL</div>
-          <label>API 缓存命中率</label>
-          <div class="stat-sub">API 命中 / API 总请求</div>
-          <value id="v_api_rate">-</value>
-          <div id="v_api_cache" class="chip-row"></div>
-        </card>
-        <card>
-          <div class="stat-icon">RATE</div>
-          <label>最近1分钟</label>
-          <div class="stat-sub">请求速率与错误率（基于日志窗口）</div>
-          <value id="v_rps">-</value>
-          <div style="font-size:12px;color:var(--muted);margin-top:6px" id="v_err_rate">-</div>
-        </card>
-        <card>
-          <div class="stat-icon">DSK</div>
-          <label>磁盘缓存占用</label>
-          <value id="v_disk_usage">-</value>
-          <div class="meter"><div id="bar_disk" class="meter-fill"></div></div>
-          <div style="font-size:12px;color:var(--muted);margin-top:6px" id="v_disk_path"></div>
-        </card>
-        <card>
-          <div class="stat-icon">MEM</div>
-          <label>内存缓存占用</label>
-          <value id="v_mem_usage">-</value>
-          <div class="meter"><div id="bar_mem" class="meter-fill"></div></div>
-          <div style="font-size:12px;color:var(--muted);margin-top:6px" id="v_mem_count"></div>
-        </card>
-        <card>
-          <div class="stat-icon">HTTP</div>
-          <label>状态码统计</label>
-          <div class="stat-sub">最近窗口状态分布</div>
-          <div id="v_status_bars" class="status-bars"></div>
-          <div id="v_status" class="stat-list"></div>
-        </card>
-      </grid>
-      <section>
+      <button id="drawer_backdrop" class="drawer-backdrop" type="button" aria-label="关闭详细信息"></button>
+      <aside id="details_drawer" class="details-drawer" aria-hidden="true" aria-label="详细监控信息">
+        <div class="drawer-head"><div><div class="hero-kicker">DETAILS</div><h2>详细监控</h2></div><button id="btn_drawer_close" class="drawer-close" type="button">关闭</button></div>
+        <div id="metric_alert" class="metric-alert" role="status" aria-live="polite"></div>
+        <div class="drawer-actions">
+          <button id="btn_pause" class="chip-btn" type="button">刷新：开</button><button id="btn_scroll" class="chip-btn" type="button">滚动：开</button><button id="btn_clearlogs" class="chip-btn off" type="button">清空显示</button><button id="btn_theme" class="chip-btn" type="button">风格：星云</button><button id="btn_logout" class="chip-btn danger" type="button">退出登录</button>
+        </div>
+        <div class="drawer-metrics">
+          <div class="drawer-card"><label>API 请求</label><value id="v_api">-</value><label>API 缓存命中率</label><value id="v_api_rate">-</value><div id="v_api_cache" class="chip-row"></div></div>
+          <div class="drawer-card"><label>图片缓存命中率</label><value id="v_img_rate">-</value><div id="v_img_cache" class="chip-row"></div></div>
+          <div class="drawer-card"><label>磁盘缓存</label><value id="v_disk_usage">-</value><div class="meter"><div id="bar_disk" class="meter-fill"></div></div><div id="v_disk_path" class="stat-sub"></div></div>
+          <div class="drawer-card"><label>内存缓存</label><value id="v_mem_usage">-</value><div class="meter"><div id="bar_mem" class="meter-fill"></div></div><div id="v_mem_count" class="stat-sub"></div></div>
+          <div class="drawer-card" style="grid-column:1/-1"><label>状态码统计</label><div id="v_status_bars" class="status-bars"></div><div id="v_status" class="stat-list"></div></div>
+        </div>
         <card class="log-panel">
-          <div class="log-toolbar">
-            <div class="log-title-row">
-              <label style="margin-bottom:0">最近访问日志</label>
-              <span id="v_log_filter_info" class="pill">全部 0/0</span>
-            </div>
-            <div class="log-actions">
-              <button id="btn_pause" class="chip-btn" aria-label="暂停自动刷新">刷新：开</button>
-              <button id="btn_scroll" class="chip-btn" aria-label="切换日志自动滚动">滚动：开</button>
-              <button id="btn_clearlogs" class="chip-btn off" aria-label="清空前端日志显示">清空显示</button>
-            </div>
-          </div>
-          <div class="log-filters" role="group" aria-label="日志筛选">
-            <button class="chip-btn log-filter active" data-filter="all">全部</button>
-            <button class="chip-btn log-filter" data-filter="5xx">5xx错误</button>
-            <button class="chip-btn log-filter" data-filter="4xx">4xx异常</button>
-            <button class="chip-btn log-filter" data-filter="slow">慢请求</button>
-            <button class="chip-btn log-filter" data-filter="miss">缓存未命中</button>
-            <button class="chip-btn log-filter" data-filter="api">只看 API</button>
-            <button class="chip-btn log-filter" data-filter="image">只看图片</button>
-          </div>
+          <div class="log-toolbar"><div class="log-title-row"><label>最近访问日志</label><span id="v_log_filter_info" class="pill">全部 0/0</span></div></div>
+          <div class="log-filters" role="group" aria-label="日志筛选"><button class="chip-btn log-filter active" data-filter="all">全部</button><button class="chip-btn log-filter" data-filter="5xx">5xx错误</button><button class="chip-btn log-filter" data-filter="4xx">4xx异常</button><button class="chip-btn log-filter" data-filter="slow">慢请求</button><button class="chip-btn log-filter" data-filter="miss">缓存未命中</button><button class="chip-btn log-filter" data-filter="api">只看 API</button><button class="chip-btn log-filter" data-filter="image">只看图片</button></div>
           <div id="v_logs" class="logs" aria-live="polite"></div>
         </card>
-      </section>
+      </aside>
     </section>
   </main>
   <script>
@@ -276,6 +256,10 @@
     const btnClearCache = document.getElementById('btn_clear_cache');
     const btnTheme = document.getElementById('btn_theme');
     const btnLogout = document.getElementById('btn_logout');
+    const btnDetails = document.getElementById('btn_details');
+    const btnDrawerClose = document.getElementById('btn_drawer_close');
+    const detailsDrawer = document.getElementById('details_drawer');
+    const drawerBackdrop = document.getElementById('drawer_backdrop');
     const metricAlert = document.getElementById('metric_alert');
     const connectionState = document.getElementById('connection_state');
     const logFilterInfo = document.getElementById('v_log_filter_info');
@@ -311,6 +295,14 @@
     function setConnection(kind, text) {
       connectionState.className = `pill ${kind}`;
       connectionState.textContent = text;
+    }
+
+    function setDrawer(open) {
+      detailsDrawer.classList.toggle('open', open);
+      drawerBackdrop.classList.toggle('open', open);
+      detailsDrawer.setAttribute('aria-hidden', String(!open));
+      btnDetails.setAttribute('aria-expanded', String(open));
+      document.body.classList.toggle('drawer-open', open);
     }
 
     function formatNumber(value) {
@@ -597,6 +589,9 @@
         const apiHit = Number(m.metrics.api.hit || 0);
         const apiMiss = Number(m.metrics.api.miss || 0);
         document.getElementById('v_api_rate').textContent = formatPct(apiHit, apiHit + apiMiss);
+        const combinedHits = apiHit + imageHit;
+        const combinedTotal = combinedHits + apiMiss + imageMiss;
+        document.getElementById('v_hit_rate').textContent = formatPct(combinedHits, combinedTotal);
         setChips('v_api_cache', [
           { label: '命中', value: formatNumber(apiHit), kind: 'hit' },
           { label: '未命中', value: formatNumber(apiMiss), kind: 'miss' }
@@ -643,14 +638,16 @@
           const now = Date.now();
           const win = rows.filter(l => now - Number(l.time || 0) <= 60000);
           const total1m = win.length;
-          const err1m = win.filter(l => Number(l.status) >= 500).length;
+          const err1m = win.filter(l => Number(l.status) >= 400).length;
           const rps = total1m / 60;
           const errRate = total1m > 0 ? (err1m / total1m) * 100 : 0;
           document.getElementById('v_rps').textContent = `${rps.toFixed(2)} req/s`;
           document.getElementById('v_err_rate').textContent = `请求数: ${total1m} / min · 错误率: ${errRate.toFixed(1)}%`;
+          document.getElementById('v_error_rate').textContent = `${errRate.toFixed(2)}%`;
         } else {
           document.getElementById('v_rps').textContent = '0.00 req/s';
           document.getElementById('v_err_rate').textContent = '请求数: 0 / min · 错误率: 0.0%';
+          document.getElementById('v_error_rate').textContent = '0.00%';
         }
         renderLogs(rows);
         document.getElementById('v_refreshed').textContent = new Date().toLocaleTimeString('zh-CN', { hour12: false });
@@ -666,6 +663,10 @@
     btn.addEventListener('click', login);
     keyInput.addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
     btnRefresh.addEventListener('click', () => loadDashboard({ force: true }));
+    btnDetails.addEventListener('click', () => setDrawer(btnDetails.getAttribute('aria-expanded') !== 'true'));
+    btnDrawerClose.addEventListener('click', () => setDrawer(false));
+    drawerBackdrop.addEventListener('click', () => setDrawer(false));
+    document.addEventListener('keydown', event => { if (event.key === 'Escape') setDrawer(false); });
     btnClearCache.addEventListener('click', async () => {
       if (!confirm('确定清除全部缓存吗？')) return;
       const originalText = btnClearCache.textContent;
@@ -746,6 +747,7 @@
       msg.textContent = '';
       keyInput.value = '';
       btn.disabled = false;
+      setDrawer(false);
       setBackground(DEFAULT_BG);
     });
 
