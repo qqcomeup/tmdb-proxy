@@ -100,6 +100,12 @@ assert.match(
   dashboardHtml,
   /fetchJSON\(\s*["']\/admin\/clear-cache\?type=all["']\s*,\s*\{\s*method\s*:\s*["']POST["']\s*}\s*\)/
 );
+assert.match(dashboardHtml, /id=["']details_drawer["']/);
+assert.match(dashboardHtml, /id=["']btn_details["'][^>]*aria-controls=["']details_drawer["'][^>]*aria-expanded=["']false["']/);
+assert.match(dashboardHtml, /id=["']btn_changebg["']/);
+assert.match(dashboardHtml, /prefers-reduced-motion:\s*reduce/);
+assert.match(dashboardHtml, /event\.key\s*===\s*["']Escape["']/);
+assert.doesNotMatch(dashboardHtml, /播放预告|热门 TOP|海报墙/);
 
 const readme = fs.readFileSync(path.join(__dirname, 'README.md'), 'utf8');
 assert.match(readme, /tmdb-cache:\/tmp\/tmdb-cache/);
