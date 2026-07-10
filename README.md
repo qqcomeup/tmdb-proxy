@@ -8,7 +8,14 @@
 - 管理面板：`/admin/dashboard`
 - Docker / Docker Compose 部署
 
-镜像地址：
+## 镜像和架构
+
+镜像同时支持：
+
+- `linux/amd64`：常见 Intel / AMD 服务器
+- `linux/arm64`：ARM64 服务器、树莓派 64 位等
+
+两种架构使用同一个镜像地址，Docker 会自动选择：
 
 ```bash
 ghcr.io/qqcomeup/tmdb-proxy:latest
@@ -16,10 +23,10 @@ ghcr.io/qqcomeup/tmdb-proxy:latest
 
 ## 最简单部署
 
-下面两种部署方式二选一即可：
+下面两种部署方式二选一：
 
-- 如果直接把密钥写进 `docker-compose.yml`，就不需要再写 `.env`。
-- 如果使用仓库自带 `docker-compose.yml`，就把密钥写进 `.env`。
+- 直接把密钥写入 `docker-compose.yml` 时，不需要 `.env`。
+- 使用仓库自带 `docker-compose.yml` 时，把密钥写入 `.env`。
 
 ### 方式一：直接写 docker-compose.yml
 
@@ -45,10 +52,13 @@ services:
       - PORT=54321
       - TMDB_API_KEY=你的_TMDB_API_KEY
       - ADMIN_API_KEY=你的管理密码
+      - COOKIE_SECURE=false
       - IMAGE_DISK_CACHE_ENABLED=true
       - IMAGE_DISK_CACHE_DIR=/tmp/tmdb-cache
-      - IMAGE_DISK_CACHE_MAX_GB=2
-      - IMAGE_DISK_CACHE_TRIGGER_GB=1.7
+      - IMAGE_DISK_CACHE_MAX_GB=1
+      - IMAGE_MEM_CACHE_MAX_MB=100
+      - API_CACHE_TTL=600
+      - API_CACHE_MAX_ITEMS=2000
     volumes:
       - ./cache:/tmp/tmdb-cache
 ```
@@ -87,7 +97,7 @@ http://服务器IP:54321/health
 http://服务器IP:54321/admin/dashboard
 ```
 
-### 方式二：使用仓库自带 compose + .env
+### 方式二：使用仓库自带 Compose + .env
 
 克隆仓库：
 
@@ -108,6 +118,23 @@ ADMIN_API_KEY=你的管理密码
 
 ```bash
 docker compose --env-file .env up -d
+```
+
+## HTTP / HTTPS Cookie 设置
+
+- 通过 HTTPS 域名访问管理面板：使用 `COOKIE_SECURE=true`。
+- 直接通过 `http://服务器IP:端口` 访问：使用 `COOKIE_SECURE=false`，否则浏览器不会保存管理登录 Cookie。
+
+直接通过 HTTP IP 访问时，请在 `.env` 或 `docker-compose.yml` 中设置：
+
+```env
+COOKIE_SECURE=false
+```
+
+使用 HTTPS 反向代理时设置：
+
+```env
+COOKIE_SECURE=true
 ```
 
 ## 常用接口
@@ -139,17 +166,41 @@ TMDB API 代理：
 
 ## 环境变量
 
-| 变量 | 必填 | 默认值 | 说明 |
-| --- | --- | --- | --- |
-| `TMDB_API_KEY` | 是 | 无 | TMDB API Key |
-| `ADMIN_API_KEY` | 是 | 无 | 管理面板密钥 |
-| `PORT` | 否 | `54321` | 容器内监听端口 |
-| `IMAGE_DISK_CACHE_ENABLED` | 否 | `true` | 是否启用图片磁盘缓存 |
-| `IMAGE_DISK_CACHE_DIR` | 否 | `/tmp/tmdb-cache` | 图片缓存目录 |
-| `IMAGE_DISK_CACHE_MAX_GB` | 否 | `1` | 图片缓存最大容量 |
-| `IMAGE_MEM_CACHE_MAX_MB` | 否 | `100` | 图片内存缓存最大容量 |
-| `API_CACHE_TTL` | 否 | `600` | API 缓存秒数 |
-| `IMAGE_CACHE_TTL` | 否 | `604800` | 图片缓存秒数 |
+必填变量：
+
+| 变量 | 说明 |
+| --- | --- |
+| `TMDB_API_KEY` | TMDB API Key |
+| `ADMIN_API_KEY` | 管理面板密钥 |
+
+常用变量：
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `BIND_ADDRESS` | `127.0.0.1` | Compose 对外绑定地址 |
+| `PORT` | `54321` | 容器内监听端口 |
+| `COOKIE_SECURE` | `true` | 是否只通过 HTTPS 发送管理登录 Cookie |
+| `FETCH_TIMEOUT_MS` | `15000` | TMDB 请求超时时间（毫秒） |
+| `API_RETRY_COUNT` | `2` | TMDB API 请求重试次数 |
+| `IMAGE_RETRY_COUNT` | `1` | 图片请求重试次数 |
+| `RETRY_DELAY_MS` | `150` | 重试间隔（毫秒） |
+| `API_CACHE_MAX_ITEMS` | `2000` | API 缓存最大条目数 |
+| `API_CACHE_TTL` | `600` | API 缓存秒数 |
+| `IMAGE_CACHE_TTL` | `604800` | 图片缓存秒数 |
+| `IMAGE_DISK_CACHE_ENABLED` | `true` | 是否启用图片磁盘缓存 |
+| `IMAGE_DISK_CACHE_DIR` | `/tmp/tmdb-cache` | 图片缓存目录 |
+| `IMAGE_DISK_CACHE_MAX_GB` | `1` | 图片磁盘缓存最大容量（GB） |
+| `IMAGE_MEM_CACHE_MAX_MB` | `100` | 图片内存缓存最大容量（MB） |
+
+资源限制变量：
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `CONTAINER_MEM_LIMIT` | `512m` | 容器内存上限 |
+| `CONTAINER_MEM_RESERVATION` | `256m` | 容器内存预留 |
+| `pids_limit` | `256` | Compose 中的进程数上限 |
+
+其他可选变量可参考 `.env.example`，例如 `DISK_CACHE_CLEANUP_INTERVAL_MS`。
 
 ## 更新
 
@@ -158,7 +209,9 @@ docker compose pull
 docker compose up -d
 ```
 
-## 本地源码运行
+## 本地源码运行和测试
+
+启动开发服务：
 
 ```bash
 npm start
@@ -168,4 +221,12 @@ npm start
 
 ```text
 0.0.0.0:54321
+```
+
+源码检查和测试：
+
+```bash
+npm run check
+npm test
+npm run validate:release
 ```
