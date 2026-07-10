@@ -8,6 +8,29 @@
 - 管理面板：`/admin/dashboard`
 - Docker / Docker Compose 部署
 
+## 界面预览
+
+管理面板采用极简电影控制台设计，首页只显示服务状态、请求量、缓存命中率、实时速率和错误率。缓存容量、状态码与访问日志收纳在右侧详情抽屉中。
+
+### 桌面端
+
+![TMDB Proxy 桌面端管理面板](docs/images/admin-dashboard-desktop.webp)
+
+### 手机端与详情抽屉
+
+<table>
+  <tr>
+    <td width="34%" align="center"><strong>手机端</strong></td>
+    <td width="66%" align="center"><strong>详细监控</strong></td>
+  </tr>
+  <tr>
+    <td valign="top"><img src="docs/images/admin-dashboard-mobile.webp" alt="TMDB Proxy 手机端管理面板"></td>
+    <td valign="top"><img src="docs/images/admin-dashboard-details.webp" alt="TMDB Proxy 详细监控抽屉"></td>
+  </tr>
+</table>
+
+> 背景图片由管理面板通过 TMDB 随机背景接口加载，因此实际显示内容会变化。截图使用本地测试环境，未包含真实密钥、Cookie 或访问日志。
+
 ## 镜像和架构
 
 镜像同时支持：

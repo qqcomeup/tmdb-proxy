@@ -43,3 +43,19 @@
 - `npm run check`、`npm test`、`npm run validate:release` 和 `git diff --check` 全部通过。
 - 使用桌面 1440×900 和手机 390×844 截图检查无溢出、文字可读、操作可触达。
 - 源码中不出现真实 API Key、管理密钥、Cookie、日志隐私数据或其他敏感信息。
+
+## 效果预览
+
+### 桌面端总览
+
+![桌面端电影控制台](../../images/admin-dashboard-desktop.webp)
+
+### 手机端
+
+<img src="../../images/admin-dashboard-mobile.webp" alt="手机端电影控制台" width="390">
+
+### 详细监控抽屉
+
+![详细监控抽屉](../../images/admin-dashboard-details.webp)
+
+截图来自本地测试环境，仅展示空白统计数据和界面结构，不包含真实密钥、Cookie 或访问日志。运行时背景由 TMDB 随机背景接口提供，因此实际画面会随背景变化。
