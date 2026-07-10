@@ -1,10 +1,12 @@
 {
   "name": "tmdb-proxy",
-  "version": "2.2.0",
+  "version": "2.6.1",
   "description": "TMDB Proxy - Zero dependencies",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "check": "node --check server.js && node --check test.js",
+    "test": "node test.js",
     "validate:release": "node scripts/validate-public-release.mjs"
   },
   "author": "qqcomeup",

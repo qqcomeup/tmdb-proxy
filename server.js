@@ -3,12 +3,8 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
-
-// ============== 版本信息 ==============
-let PKG_VERSION = '0.0.0';
-try {
-  PKG_VERSION = require('./package.json').version || PKG_VERSION;
-} catch {}
+const crypto = require('crypto');
+const { version: VERSION } = require('./package.json');
 
 // ============== 配置 ==============
 const PORT = process.env.PORT || 54321;
@@ -23,8 +19,11 @@ const IMAGE_MEM_CACHE_MAX_BYTES = IMAGE_MEM_CACHE_MAX_MB * 1024 * 1024;
 const FETCH_TIMEOUT_MS = Number(process.env.FETCH_TIMEOUT_MS) || 15000;
 const API_CACHE_MAX_ITEMS = Number(process.env.API_CACHE_MAX_ITEMS) || 2000;
 const REQUEST_LOG_CAP = 500;
-const RETRY_COUNT = 3;
-const RETRY_DELAY_MS = 200;
+const API_RETRY_COUNT = Number(process.env.API_RETRY_COUNT) || 2;
+const IMAGE_RETRY_COUNT = Number(process.env.IMAGE_RETRY_COUNT) || 1;
+const RETRY_DELAY_MS = Number(process.env.RETRY_DELAY_MS) || 150;
+const DISK_CACHE_SIZE_TTL_MS = Number(process.env.DISK_CACHE_SIZE_TTL_MS) || 30000;
+const DISK_CACHE_CLEANUP_INTERVAL_MS = Number(process.env.DISK_CACHE_CLEANUP_INTERVAL_MS) || 600000;
 
 // ============== Keep-Alive Agent ==============
 const httpsAgent = new https.Agent({
@@ -47,7 +46,11 @@ const apiAgent = new https.Agent({
 // ============== 全局状态 ==============
 const apiCache = new Map();
 const apiCacheExpiry = new Map();
+const http2Sessions = new Map();
 const REQUEST_LOGS = [];
+let diskCacheBytesSnapshot = 0;
+let diskCacheBytesSnapshotAt = 0;
+let diskCacheBytesRefreshPromise = null;
 const METRICS = {
   startTime: Date.now(),
   total: 0,
@@ -164,20 +167,47 @@ function getClientIP(req) {
   return req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
 }
 
+function hasForwardedClientIP(req) {
+  return Boolean(req.headers['x-forwarded-for'] || req.headers['x-real-ip']);
+}
+
+function normalizeIP(ip) {
+  return String(ip || '').replace(/^::ffff:/, '');
+}
+
+function isLocalOrPrivateIP(ip) {
+  const value = normalizeIP(ip);
+  return value === '127.0.0.1'
+    || value === '::1'
+    || value === 'localhost'
+    || value.startsWith('10.')
+    || value.startsWith('192.168.')
+    || /^172\.(1[6-9]|2\d|3[0-1])\./.test(value);
+}
+
+function shouldRecordRequest(req, pathname, type) {
+  if (pathname === '/health' || pathname === '/ping') return false;
+  if (type === 'other' && pathname.startsWith('/admin')) return false;
+  if (!hasForwardedClientIP(req) && isLocalOrPrivateIP(req.socket?.remoteAddress)) return false;
+  return type !== 'other' || !pathname.startsWith('/admin');
+}
+
 function parseQuery(url) {
-  const idx = url.indexOf('?');
-  if (idx === -1) return {};
   const params = {};
-  url.slice(idx + 1).split('&').forEach(pair => {
-    const [k, v] = pair.split('=');
-    if (k) params[decodeURIComponent(k)] = v ? decodeURIComponent(v) : '';
-  });
+  try {
+    const parsed = new URL(url, 'http://localhost');
+    for (const [key, value] of parsed.searchParams) params[key] = value;
+  } catch {}
   return params;
 }
 
 function getPathname(url) {
-  const idx = url.indexOf('?');
-  return idx === -1 ? url : url.slice(0, idx);
+  try {
+    return new URL(url, 'http://localhost').pathname;
+  } catch {
+    const idx = url.indexOf('?');
+    return idx === -1 ? url : url.slice(0, idx);
+  }
 }
 
 function parseCookies(req) {
@@ -194,21 +224,61 @@ function parseCookies(req) {
   return out;
 }
 
+function timingSafeEqualString(a, b) {
+  const left = Buffer.from(String(a));
+  const right = Buffer.from(String(b));
+  return left.length === right.length && crypto.timingSafeEqual(left, right);
+}
+
+function signAdminSession(expiresAt) {
+  const adminKey = (process.env.ADMIN_API_KEY || '').trim();
+  return crypto.createHmac('sha256', adminKey).update(String(expiresAt)).digest('base64url');
+}
+
+function createAdminSessionToken(maxAgeSeconds) {
+  const expiresAt = Math.floor(Date.now() / 1000) + maxAgeSeconds;
+  return `${expiresAt}.${signAdminSession(expiresAt)}`;
+}
+
+function verifyAdminSessionToken(token) {
+  const adminKey = (process.env.ADMIN_API_KEY || '').trim();
+  if (!adminKey || typeof token !== 'string') return false;
+  const [expiresAt, signature, extra] = token.split('.');
+  if (!expiresAt || !signature || extra) return false;
+  const expires = Number(expiresAt);
+  if (!Number.isSafeInteger(expires) || expires < Math.floor(Date.now() / 1000)) return false;
+  return timingSafeEqualString(signature, signAdminSession(expiresAt));
+}
+
+function cookieOptions(maxAgeSeconds) {
+  const parts = ['Path=/', 'HttpOnly', 'SameSite=Lax'];
+  if (maxAgeSeconds !== undefined) parts.push(`Max-Age=${maxAgeSeconds}`);
+  if ((process.env.COOKIE_SECURE || '').toLowerCase() === 'true') parts.push('Secure');
+  return parts.join('; ');
+}
+
 async function ensureDir(dir) {
   await fs.promises.mkdir(dir, { recursive: true });
 }
 
 function getCacheFilePath(imagePath) {
-  // 防止路径穿越：拒绝包含 .. 或绝对路径的输入
-  const cleaned = imagePath.replace(/^\/+/, '');
-  if (cleaned.includes('..') || path.isAbsolute(cleaned)) return null;
+  if (!isSafeImagePath(imagePath)) throw new Error('Unsafe image path');
 
-  const baseDir = path.resolve(IMAGE_DISK_CACHE_DIR);
-  const target = path.resolve(baseDir, cleaned);
-
-  // 校验解析后的路径仍在缓存目录内
-  if (!target.startsWith(baseDir + path.sep) && target !== baseDir) return null;
+  const base = path.resolve(IMAGE_DISK_CACHE_DIR);
+  const target = path.resolve(base, imagePath.replace(/^\/+/, ''));
+  if (target !== base && !target.startsWith(base + path.sep)) {
+    throw new Error('Unsafe cache path');
+  }
   return target;
+}
+
+function isSafeImagePath(imagePath) {
+  if (typeof imagePath !== 'string') return false;
+  if (!imagePath.startsWith('/t/p/')) return false;
+  if (imagePath.includes('\\') || imagePath.includes('\0')) return false;
+  const segments = imagePath.split('/');
+  if (segments.some(part => part === '..')) return false;
+  return /^\/t\/p\/[A-Za-z0-9._/-]+$/.test(imagePath);
 }
 
 function getContentType(p) {
@@ -259,27 +329,6 @@ function sendJSONCompressed(req, res, status, data, headers = {}) {
   }
 }
 
-// 发送原始 JSON 字符串，不经过 parse+stringify，保留浮点精度等原始格式
-function sendJSONRaw(req, res, status, rawText, headers = {}) {
-  const baseHeaders = { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*', ...headers };
-  const bodyBuf = Buffer.from(rawText, 'utf8');
-
-  if (shouldCompress(req) && bodyBuf.length > 1024) {
-    zlib.gzip(bodyBuf, (err, compressed) => {
-      if (err) {
-        res.writeHead(status, { ...baseHeaders, 'Content-Length': bodyBuf.length });
-        res.end(bodyBuf);
-      } else {
-        res.writeHead(status, { ...baseHeaders, 'Content-Encoding': 'gzip', 'Content-Length': compressed.length });
-        res.end(compressed);
-      }
-    });
-  } else {
-    res.writeHead(status, { ...baseHeaders, 'Content-Length': bodyBuf.length });
-    res.end(bodyBuf);
-  }
-}
-
 // ============== 日志与指标 ==============
 function recordLog(entry) {
   REQUEST_LOGS.push(entry);
@@ -313,24 +362,34 @@ function recordLog(entry) {
 // ============== HTTPS 请求（使用 HTTP/2，带自动解压和重试） ==============
 const http2 = require('http2');
 
+function getHttp2Session(origin) {
+  const existing = http2Sessions.get(origin);
+  if (existing && !existing.closed && !existing.destroyed) {
+    return existing;
+  }
+
+  const session = http2.connect(origin);
+  http2Sessions.set(origin, session);
+
+  const clearSession = () => {
+    if (http2Sessions.get(origin) === session) {
+      http2Sessions.delete(origin);
+    }
+  };
+
+  session.on('close', clearSession);
+  session.on('error', clearSession);
+  session.on('goaway', clearSession);
+
+  return session;
+}
+
 function httpsRequestOnce(url, options = {}) {
   return new Promise((resolve, reject) => {
     const urlObj = new URL(url);
     const origin = urlObj.origin;
-
-    // 每次创建新 session，避免复用导致数据混乱
-    const session = http2.connect(origin);
+    const session = getHttp2Session(origin);
     let settled = false;
-
-    const cleanup = () => {
-      if (!session.closed && !session.destroyed) {
-        session.close();
-      }
-    };
-
-    session.on('error', (err) => {
-      if (!settled) { settled = true; cleanup(); reject(err); }
-    });
 
     const headers = {
       [http2.constants.HTTP2_HEADER_METHOD]: options.method || 'GET',
@@ -350,12 +409,17 @@ function httpsRequestOnce(url, options = {}) {
       }
     }
 
-    const req = session.request(headers);
+    let req;
+    try {
+      req = session.request(headers);
+    } catch (err) {
+      reject(err);
+      return;
+    }
     req.setTimeout(FETCH_TIMEOUT_MS, () => {
       if (!settled) {
         settled = true;
         req.close();
-        cleanup();
         METRICS.errors.timeout++;
         reject(new Error('Request timeout'));
       }
@@ -378,7 +442,6 @@ function httpsRequestOnce(url, options = {}) {
       // 使用 setImmediate 确保所有 data 事件都已处理
       setImmediate(() => {
         const raw = Buffer.concat(chunks);
-        cleanup();
 
         // 自动检测 gzip magic bytes 并解压
         if (raw[0] === 0x1f && raw[1] === 0x8b) {
@@ -411,29 +474,70 @@ function httpsRequestOnce(url, options = {}) {
     });
 
     req.on('error', (err) => {
-      if (!settled) { settled = true; cleanup(); reject(err); }
+      if (!settled) { settled = true; reject(err); }
     });
 
-    req.end();
+    try {
+      req.end();
+    } catch (err) {
+      if (!settled) {
+        settled = true;
+        reject(err);
+      }
+    }
   });
+}
+
+function delayRetry(attempt) {
+  return new Promise(r => setTimeout(r, RETRY_DELAY_MS * (attempt + 1)));
 }
 
 async function httpsRequest(url, options = {}) {
   let lastErr;
-  for (let i = 0; i <= RETRY_COUNT; i++) {
+  for (let i = 0; i <= API_RETRY_COUNT; i++) {
     try {
       const resp = await httpsRequestOnce(url, options);
-      // 5xx 时重试
-      if (resp.status >= 500 && i < RETRY_COUNT) {
-        await new Promise(r => setTimeout(r, RETRY_DELAY_MS * (i + 1)));
+      if (resp.status >= 500 && i < API_RETRY_COUNT) {
+        await delayRetry(i);
         continue;
       }
       return resp;
     } catch (err) {
       lastErr = err;
-      if (i < RETRY_COUNT) {
-        await new Promise(r => setTimeout(r, RETRY_DELAY_MS * (i + 1)));
+      if (i < API_RETRY_COUNT) await delayRetry(i);
+    }
+  }
+  throw lastErr;
+}
+
+function httpsImageRequestOnce(options) {
+  return new Promise((resolve, reject) => {
+    const req = https.request(options, (r) => {
+      const chunks = [];
+      r.on('data', chunk => chunks.push(chunk));
+      r.on('end', () => {
+        resolve({ status: r.statusCode, headers: r.headers, buffer: Buffer.concat(chunks) });
+      });
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(new Error('Image request timeout')); });
+    req.end();
+  });
+}
+
+async function httpsImageRequest(options) {
+  let lastErr;
+  for (let i = 0; i <= IMAGE_RETRY_COUNT; i++) {
+    try {
+      const resp = await httpsImageRequestOnce(options);
+      if (resp.status >= 500 && i < IMAGE_RETRY_COUNT) {
+        await delayRetry(i);
+        continue;
       }
+      return resp;
+    } catch (err) {
+      lastErr = err;
+      if (i < IMAGE_RETRY_COUNT) await delayRetry(i);
     }
   }
   throw lastErr;
@@ -460,11 +564,45 @@ async function collectFiles(dir, acc = []) {
     const entries = await fs.promises.readdir(dir, { withFileTypes: true });
     for (const de of entries) {
       const full = path.join(dir, de.name);
-      if (de.isFile()) { const s = await fs.promises.stat(full); acc.push({ path: full, size: s.size, atimeMs: s.atimeMs }); }
-      else if (de.isDirectory()) { await collectFiles(full, acc); }
+      if (de.isFile()) {
+        const s = await fs.promises.stat(full);
+        acc.push({ path: full, size: s.size, mtimeMs: s.mtimeMs, atimeMs: s.atimeMs });
+      } else if (de.isDirectory()) {
+        await collectFiles(full, acc);
+      }
     }
   } catch {}
   return acc;
+}
+
+async function getDiskCacheBytes(force = false) {
+  if (!IMAGE_DISK_CACHE_ENABLED) return 0;
+
+  const now = Date.now();
+  const isFresh = diskCacheBytesSnapshotAt && (now - diskCacheBytesSnapshotAt) < DISK_CACHE_SIZE_TTL_MS;
+  if (!force && isFresh) return diskCacheBytesSnapshot;
+
+  if (!diskCacheBytesRefreshPromise) {
+    diskCacheBytesRefreshPromise = (async () => {
+      const bytes = await getDirSize(IMAGE_DISK_CACHE_DIR);
+      diskCacheBytesSnapshot = bytes;
+      diskCacheBytesSnapshotAt = Date.now();
+      return bytes;
+    })().finally(() => {
+      diskCacheBytesRefreshPromise = null;
+    });
+  }
+
+  if (force || (!diskCacheBytesSnapshotAt && !diskCacheBytesSnapshot)) {
+    return diskCacheBytesRefreshPromise;
+  }
+
+  return diskCacheBytesSnapshot;
+}
+
+function setDiskCacheBytesSnapshot(bytes) {
+  diskCacheBytesSnapshot = Math.max(0, bytes);
+  diskCacheBytesSnapshotAt = Date.now();
 }
 
 function cleanupCacheIfNeeded() {
@@ -475,14 +613,17 @@ function cleanupCacheIfNeeded() {
       const total = await getDirSize(IMAGE_DISK_CACHE_DIR);
       if (total > IMAGE_DISK_CACHE_MAX_BYTES) {
         const files = await collectFiles(IMAGE_DISK_CACHE_DIR);
-        files.sort((a, b) => a.atimeMs - b.atimeMs);
+        files.sort((a, b) => Math.min(a.atimeMs, a.mtimeMs) - Math.min(b.atimeMs, b.mtimeMs));
         let size = total;
         const target = IMAGE_DISK_CACHE_MAX_BYTES * 0.75;
         for (const f of files) {
           if (size <= target) break;
           try { await fs.promises.unlink(f.path); size -= f.size; } catch {}
         }
+        setDiskCacheBytesSnapshot(size);
+        return;
       }
+      setDiskCacheBytesSnapshot(total);
     } catch {} finally {
       diskCacheCleanupRunning = false;
     }
@@ -502,36 +643,28 @@ function securityCheck(req) {
   // 允许无 UA 的内部请求（如 MoviePilot）
   if (!ua) return true;
   const lower = ua.toLowerCase();
-
-  // 放行常见合法的社交/消息平台抓取器。
-  // Telegram 在发送或编辑远程图片消息时，会由 Telegram 服务端抓取图片 URL；
-  // 如果这里按 bot 关键字统一拦截，会导致 Bot API 返回 failed to get HTTP URL content。
-  const allowedBots = [
-    'telegrambot',
-    'twitterbot',
-    'facebookexternalhit',
-    'discordbot',
-    'slackbot',
-    'whatsapp',
-    'googlebot'
-  ];
-  if (allowedBots.some(s => lower.includes(s))) return true;
-
   const suspicious = ['scrapy', 'spider'];
   const isSuspicious = suspicious.some(s => lower.includes(s));
-  return !(lower.includes('bot') || isSuspicious);
+  return !((lower.includes('bot') && !lower.includes('googlebot')) || isSuspicious);
 }
 
 function getApiKey(req, query) {
-  return req.headers['x-api-key'] || query.api_key || query.key;
+  return (process.env.TMDB_API_KEY || req.headers['x-api-key'] || query.api_key || query.key || '').trim();
+}
+
+function getApiCacheKey(pathname, query) {
+  const entries = Object.entries(query)
+    .filter(([key]) => key !== 'api_key' && key !== 'key')
+    .sort(([a], [b]) => a.localeCompare(b));
+  return `${pathname}:${JSON.stringify(entries)}`;
 }
 
 function checkAdminKey(req, query) {
   const adminKey = (process.env.ADMIN_API_KEY || '').trim();
   if (!adminKey) return false;
-  const cookies = parseCookies(req);
-  const provided = req.headers['x-admin-key'] || query.admin_key || cookies['admin_key'] || '';
-  return provided === adminKey;
+  const provided = req.headers['x-admin-key'] || query.admin_key || '';
+  if (provided) return timingSafeEqualString(provided, adminKey);
+  return verifyAdminSessionToken(parseCookies(req)['admin_session']);
 }
 
 // ============== 路由处理 ==============
@@ -541,7 +674,7 @@ async function handleHealth(req, res) {
     status: 'ok',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    version: PKG_VERSION,
+    version: VERSION,
     memory_mb: Math.round(memUsage.rss / 1024 / 1024),
     cache: {
       api_items: apiCache.size,
@@ -551,33 +684,9 @@ async function handleHealth(req, res) {
   });
 }
 
-function getImageResponseHeaders(contentType, contentLength, etag, cacheStatus) {
-  return {
-    'Content-Type': contentType,
-    'Content-Length': contentLength,
-    'Cache-Control': `public, max-age=${IMAGE_CACHE_TTL}, immutable`,
-    'ETag': etag,
-    'X-Cache': cacheStatus,
-    'Access-Control-Allow-Origin': '*',
-    'Accept-Ranges': 'bytes',
-    'X-Content-Type-Options': 'nosniff'
-  };
-}
-
-function getImageNotModifiedHeaders(etag) {
-  return {
-    'ETag': etag,
-    'Cache-Control': `public, max-age=${IMAGE_CACHE_TTL}, immutable`,
-    'Access-Control-Allow-Origin': '*',
-    'Accept-Ranges': 'bytes',
-    'X-Content-Type-Options': 'nosniff'
-  };
-}
-
 async function handleImage(req, res, pathname) {
-  // 图片代理路径会被 Telegram、Discord、Slack 等服务端抓取器访问。
-  // 不在这里按 UA 拦截 bot，避免远程图片消息被平台抓图失败。
-  // 路径安全由路由前缀 /t/p/ 与 getCacheFilePath 的路径穿越检查保证。
+  if (!securityCheck(req)) return send404(res);
+  if (!isSafeImagePath(pathname)) return send404(res);
 
   let cacheStatus = 'MISS';
 
@@ -588,12 +697,23 @@ async function handleImage(req, res, pathname) {
     const etag = generateETag(memCached.buffer);
 
     if (checkNotModified(req, etag)) {
-      res.writeHead(304, getImageNotModifiedHeaders(etag));
+      res.writeHead(304, {
+        'ETag': etag,
+        'Cache-Control': `public, max-age=${IMAGE_CACHE_TTL}, immutable`,
+        'Access-Control-Allow-Origin': '*'
+      });
       res.end();
       return cacheStatus;
     }
 
-    res.writeHead(200, getImageResponseHeaders(memCached.contentType, memCached.buffer.length, etag, 'MEM-HIT'));
+    res.writeHead(200, {
+      'Content-Type': memCached.contentType,
+      'Content-Length': memCached.buffer.length,
+      'Cache-Control': `public, max-age=${IMAGE_CACHE_TTL}, immutable`,
+      'ETag': etag,
+      'X-Cache': 'MEM-HIT',
+      'Access-Control-Allow-Origin': '*'
+    });
     res.end(memCached.buffer);
     return cacheStatus;
   }
@@ -601,27 +721,36 @@ async function handleImage(req, res, pathname) {
   // 2. 检查磁盘缓存
   if (IMAGE_DISK_CACHE_ENABLED) {
     const cacheFile = getCacheFilePath(pathname);
-    if (cacheFile) {
-      try {
-        const buffer = await fs.promises.readFile(cacheFile);
-        const contentType = getContentType(cacheFile);
-        cacheStatus = 'DISK-HIT';
+    try {
+      const buffer = await fs.promises.readFile(cacheFile);
+      const contentType = getContentType(cacheFile);
+      cacheStatus = 'DISK-HIT';
 
-        imageMemCache.set(pathname, buffer, contentType);
+      imageMemCache.set(pathname, buffer, contentType);
 
-        const etag = generateETag(buffer);
+      const etag = generateETag(buffer);
 
-        if (checkNotModified(req, etag)) {
-          res.writeHead(304, getImageNotModifiedHeaders(etag));
-          res.end();
-          return cacheStatus;
-        }
-
-        res.writeHead(200, getImageResponseHeaders(contentType, buffer.length, etag, 'DISK-HIT'));
-        res.end(buffer);
+      if (checkNotModified(req, etag)) {
+        res.writeHead(304, {
+          'ETag': etag,
+          'Cache-Control': `public, max-age=${IMAGE_CACHE_TTL}, immutable`,
+          'Access-Control-Allow-Origin': '*'
+        });
+        res.end();
         return cacheStatus;
-      } catch {}
-    }
+      }
+
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Content-Length': buffer.length,
+        'Cache-Control': `public, max-age=${IMAGE_CACHE_TTL}, immutable`,
+        'ETag': etag,
+        'X-Cache': 'DISK-HIT',
+        'Access-Control-Allow-Origin': '*'
+      });
+      res.end(buffer);
+      return cacheStatus;
+    } catch {}
   }
 
   // 3. 从上游获取（带请求合并）
@@ -633,23 +762,12 @@ async function handleImage(req, res, pathname) {
         port: 443,
         path: urlObj.pathname,
         method: 'GET',
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TMDB-Proxy/2.5)' },
+        headers: { 'User-Agent': `Mozilla/5.0 (compatible; TMDB-Proxy/${VERSION})` },
         agent: httpsAgent,
         timeout: FETCH_TIMEOUT_MS
       };
 
-      return new Promise((resolve, reject) => {
-        const req = https.request(reqOptions, (r) => {
-          const chunks = [];
-          r.on('data', chunk => chunks.push(chunk));
-          r.on('end', () => {
-            resolve({ status: r.statusCode, headers: r.headers, buffer: Buffer.concat(chunks) });
-          });
-        });
-        req.on('error', reject);
-        req.on('timeout', () => { req.destroy(); reject(new Error('Image request timeout')); });
-        req.end();
-      });
+      return httpsImageRequest(reqOptions);
     });
 
     if (upstream.status !== 200) {
@@ -662,18 +780,23 @@ async function handleImage(req, res, pathname) {
 
     imageMemCache.set(pathname, upstream.buffer, contentType);
 
-    res.writeHead(200, getImageResponseHeaders(contentType, upstream.buffer.length, etag, 'MISS'));
+    res.writeHead(200, {
+      'Content-Type': contentType,
+      'Content-Length': upstream.buffer.length,
+      'Cache-Control': `public, max-age=${IMAGE_CACHE_TTL}, immutable`,
+      'ETag': etag,
+      'X-Cache': 'MISS',
+      'Access-Control-Allow-Origin': '*'
+    });
     res.end(upstream.buffer);
 
     // 异步写入磁盘缓存
     if (IMAGE_DISK_CACHE_ENABLED) {
       const cacheFile = getCacheFilePath(pathname);
-      if (cacheFile) {
-        ensureDir(path.dirname(cacheFile))
-          .then(() => fs.promises.writeFile(cacheFile, upstream.buffer))
-          .then(cleanupCacheIfNeeded)
-          .catch(() => {});
-      }
+      ensureDir(path.dirname(cacheFile))
+        .then(() => fs.promises.writeFile(cacheFile, upstream.buffer))
+        .then(cleanupCacheIfNeeded)
+        .catch(() => {});
     }
   } catch (err) {
     console.error('Image proxy error:', err.message);
@@ -688,11 +811,7 @@ async function handleAPI(req, res, pathname, query) {
   const apiKey = getApiKey(req, query);
   if (!apiKey) { send404(res); return 'MISS'; }
 
-  // 缓存 key 使用统一的 server key，避免不同客户端 key 导致重复缓存
-  const normalizedQuery = Object.assign({}, query);
-  delete normalizedQuery.api_key;
-  delete normalizedQuery.key;
-  const cacheKey = `${pathname}:${JSON.stringify(normalizedQuery)}`;
+  const cacheKey = getApiCacheKey(pathname, query);
 
   let cacheTTL = API_CACHE_TTL;
   if (pathname.includes('configuration')) cacheTTL = 3600;
@@ -702,16 +821,12 @@ async function handleAPI(req, res, pathname, query) {
 
   const cached = cacheGet(cacheKey);
   if (cached) {
-    const cachedStatus = cached.status || 200;
-    const cachedText = cached.text || cached;
-    sendJSONRaw(req, res, cachedStatus, cachedText, { 'Cache-Control': `public, max-age=${cacheTTL}`, 'X-Cache': 'HIT' });
+    sendJSONCompressed(req, res, 200, cached, { 'Cache-Control': `public, max-age=${cacheTTL}`, 'X-Cache': 'HIT' });
     return 'HIT';
   }
 
   const params = new URLSearchParams(query);
-  // 强制使用服务器配置的 API Key
-  const serverApiKey = process.env.TMDB_API_KEY || apiKey;
-  params.set('api_key', serverApiKey);
+  params.set('api_key', apiKey);
   // 还原逗号，TMDB API 需要原始逗号分隔
   const apiUrl = `https://api.tmdb.org${pathname}?${params.toString().replace(/%2C/gi, ',')}`;
 
@@ -727,22 +842,25 @@ async function handleAPI(req, res, pathname, query) {
       return 'MISS';
     }
 
-    let valid = false;
-    try { JSON.parse(text); valid = true; } catch (e) {
+    let data;
+    try { data = JSON.parse(text); } catch (e) {
       // JSON 解析失败，尝试各种解压方式
       const buf = upstream.body;
       let decoded = null;
 
+      // 使用 zlib.unzip 自动检测 gzip/deflate
       try {
         decoded = await new Promise((ok, fail) => zlib.unzip(buf, (err, r) => err ? fail(err) : ok(r)));
       } catch (unzipErr) {
         console.error('unzip failed:', unzipErr.message, '| bodyLen:', buf.length);
       }
 
+      // 尝试 brotli
       if (!decoded) {
         try { decoded = await new Promise((ok, fail) => zlib.brotliDecompress(buf, (err, r) => err ? fail(err) : ok(r))); } catch {}
       }
 
+      // 尝试 raw deflate
       if (!decoded) {
         try { decoded = await new Promise((ok, fail) => zlib.inflateRaw(buf, (err, r) => err ? fail(err) : ok(r))); } catch {}
       }
@@ -750,26 +868,21 @@ async function handleAPI(req, res, pathname, query) {
       if (decoded) {
         text = decoded.toString('utf8');
         if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
-        try { JSON.parse(text); valid = true; } catch (e3) {
+        try { data = JSON.parse(text); } catch (e3) {
           console.error('JSON parse after decompress failed:', e3.message, '| decompressed len:', decoded.length);
+          decoded = null; data = null;
         }
       }
 
-      if (!valid) {
+      if (!data) {
         console.error('JSON parse error:', e.message, '| status:', upstream.status, '| encoding:', upstream.headers['content-encoding'], '| bodyLen:', buf.length, '| hex:', buf.slice(0, 16).toString('hex'));
         sendJSONCompressed(req, res, 502, { error: 'Invalid JSON from TMDB' });
         return 'MISS';
       }
     }
 
-    // 缓存原始 JSON 文本（保留浮点精度等原始格式）
-    if (upstream.status === 200) {
-      cacheSet(cacheKey, { status: 200, text }, cacheTTL);
-    } else if (upstream.status === 404 || upstream.status === 204) {
-      // 404/204 短期缓存，避免不存在的 ID 反复打 TMDB
-      cacheSet(cacheKey, { status: upstream.status, text }, 30);
-    }
-    sendJSONRaw(req, res, upstream.status, text, { 'Cache-Control': `public, max-age=${cacheTTL}`, 'X-Cache': 'MISS' });
+    if (upstream.status === 200) cacheSet(cacheKey, data, cacheTTL);
+    sendJSONCompressed(req, res, upstream.status, data, { 'Cache-Control': `public, max-age=${cacheTTL}`, 'X-Cache': 'MISS' });
   } catch (err) {
     console.error('API proxy error:', err.message);
     sendJSONCompressed(req, res, 503, { error: 'Service unavailable', message: err.message });
@@ -781,9 +894,7 @@ async function handleAdminMetrics(req, res, query) {
   if (!checkAdminKey(req, query)) return send404(res);
 
   let diskBytes = 0;
-  if (IMAGE_DISK_CACHE_ENABLED) {
-    try { diskBytes = await getDirSize(IMAGE_DISK_CACHE_DIR); } catch {}
-  }
+  try { diskBytes = await getDiskCacheBytes(); } catch {}
 
   const memStats = imageMemCache.stats();
 
@@ -823,29 +934,42 @@ async function handleAdminAuth(req, res) {
   let data = {};
   try { data = JSON.parse(body); } catch {}
 
-  const adminKey = process.env.ADMIN_API_KEY || process.env.TMDB_API_KEY || '';
+  const adminKey = (process.env.ADMIN_API_KEY || '').trim();
   if (!adminKey) {
     return sendJSONCompressed(req, res, 500, { ok: false, message: 'Admin auth not configured' });
   }
 
-  if (data.admin_key === adminKey) {
-    sendJSONCompressed(req, res, 200, { ok: true });
+  if (timingSafeEqualString(data.admin_key || '', adminKey)) {
+    const maxAge = 7 * 24 * 60 * 60;
+    sendJSONCompressed(req, res, 200, { ok: true }, {
+      'Set-Cookie': [
+        `admin_session=${createAdminSessionToken(maxAge)}; ${cookieOptions(maxAge)}`,
+        `admin_key=; ${cookieOptions(0)}`
+      ]
+    });
   } else {
     sendJSONCompressed(req, res, 401, { ok: false });
   }
+}
+
+async function handleAdminLogout(req, res) {
+  sendJSONCompressed(req, res, 200, { ok: true }, {
+    'Set-Cookie': [
+      `admin_session=; ${cookieOptions(0)}`,
+      `admin_key=; ${cookieOptions(0)}`
+    ]
+  });
 }
 
 async function handleAdminStatus(req, res, query) {
   if (!checkAdminKey(req, query)) return send404(res);
 
   let diskBytes = 0;
-  if (IMAGE_DISK_CACHE_ENABLED) {
-    try { diskBytes = await getDirSize(IMAGE_DISK_CACHE_DIR); } catch {}
-  }
+  try { diskBytes = await getDiskCacheBytes(); } catch {}
 
   sendJSONCompressed(req, res, 200, {
     status: 'active',
-    version: PKG_VERSION,
+    version: VERSION,
     uptime: process.uptime(),
     memory: process.memoryUsage(),
     cache: { api_size: apiCache.size, disk_bytes: diskBytes, mem_cache: imageMemCache.stats() },
@@ -912,15 +1036,20 @@ async function handleAdminClearCache(req, res, query) {
     imageMemCache.currentBytes = 0;
   }
 
-  if ((type === 'disk' || type === 'all') && IMAGE_DISK_CACHE_ENABLED) {
+  if (IMAGE_DISK_CACHE_ENABLED && (type === 'disk' || type === 'all')) {
+    const files = await collectFiles(IMAGE_DISK_CACHE_DIR);
     let removed = 0;
-    try {
-      const files = await collectFiles(IMAGE_DISK_CACHE_DIR);
-      for (const f of files) {
-        try { await fs.promises.unlink(f.path); removed++; } catch {}
-      }
-    } catch {}
-    result.disk_cleared = removed;
+    let bytes = 0;
+    for (const file of files) {
+      try {
+        await fs.promises.unlink(file.path);
+        removed++;
+        bytes += file.size;
+      } catch {}
+    }
+    result.disk_files_cleared = removed;
+    result.disk_bytes_cleared = bytes;
+    setDiskCacheBytesSnapshot(0);
   }
 
   sendJSONCompressed(req, res, 200, { ok: true, ...result });
@@ -967,6 +1096,7 @@ const server = http.createServer(async (req, res) => {
       if (pathname === '/admin/metrics') return handleAdminMetrics(req, res, query);
       if (pathname === '/admin/logs') return handleAdminLogs(req, res, query);
       if (pathname === '/admin/auth' && req.method === 'POST') return handleAdminAuth(req, res);
+      if (pathname === '/admin/logout' && req.method === 'POST') return handleAdminLogout(req, res);
       if (pathname === '/admin/status') return handleAdminStatus(req, res, query);
       if (pathname === '/admin/dashboard') return handleAdminDashboard(res);
       if (pathname === '/admin/random-bg') return handleAdminRandomBg(req, res, query);
@@ -979,7 +1109,7 @@ const server = http.createServer(async (req, res) => {
     console.error('Server error:', err);
     sendJSONCompressed(req, res, 500, { error: 'Internal server error' });
   } finally {
-    if (type !== 'other' || !pathname.startsWith('/admin')) {
+    if (shouldRecordRequest(req, pathname, type)) {
       const entry = {
         time: Date.now(),
         ip: getClientIP(req),
@@ -997,7 +1127,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 // ============== 定时清理过期 API 缓存 ==============
-setInterval(() => {
+const apiCacheGcTimer = setInterval(() => {
   const now = Date.now();
   let cleaned = 0;
   for (const [k, exp] of apiCacheExpiry) {
@@ -1009,21 +1139,70 @@ setInterval(() => {
   }
   if (cleaned > 0) console.log(`[Cache GC] Cleaned ${cleaned} expired API cache entries`);
 }, 300000); // 每 5 分钟
+apiCacheGcTimer.unref();
 
-// ============== 启动 ==============
-if (IMAGE_DISK_CACHE_ENABLED) ensureDir(IMAGE_DISK_CACHE_DIR).catch(console.error);
+const diskCacheGcTimer = IMAGE_DISK_CACHE_ENABLED ? setInterval(cleanupCacheIfNeeded, DISK_CACHE_CLEANUP_INTERVAL_MS) : null;
+if (diskCacheGcTimer) diskCacheGcTimer.unref();
 
-process.on('SIGTERM', () => { console.log('SIGTERM'); httpsAgent.destroy(); apiAgent.destroy(); process.exit(0); });
-process.on('SIGINT', () => { console.log('SIGINT'); httpsAgent.destroy(); apiAgent.destroy(); process.exit(0); });
+// ============== Start ==============
+function startServer() {
+  if (IMAGE_DISK_CACHE_ENABLED) {
+    ensureDir(IMAGE_DISK_CACHE_DIR).then(cleanupCacheIfNeeded).catch(console.error);
+  }
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`🎬 TMDB Proxy v${PKG_VERSION} on port ${PORT}`);
-  console.log(`📊 Health: http://localhost:${PORT}/health`);
-  console.log(`⚡ Keep-Alive: enabled (max 80 sockets)`);
-  console.log(`🗜️ Gzip: enabled (>1KB responses)`);
-  console.log(`💾 Memory cache: ${IMAGE_MEM_CACHE_MAX_MB}MB | API cache: ${API_CACHE_MAX_ITEMS} items`);
-  console.log(`🔄 Request dedup: enabled | Retry: ${RETRY_COUNT}x`);
-  console.log(`📋 ETag/304: enabled`);
-});
+  return server.listen(PORT, '0.0.0.0', () => {
+    console.log(`TMDB Proxy v${VERSION} on port ${PORT}`);
+    console.log(`Health: http://localhost:${PORT}/health`);
+    console.log(`Keep-Alive: enabled (max 80 sockets)`);
+    console.log(`Gzip: enabled (>1KB responses)`);
+    console.log(`Memory cache: ${IMAGE_MEM_CACHE_MAX_MB}MB | API cache: ${API_CACHE_MAX_ITEMS} items`);
+    console.log(`Request dedup: enabled | API retry: ${API_RETRY_COUNT}x | Image retry: ${IMAGE_RETRY_COUNT}x`);
+    console.log(`ETag/304: enabled`);
+  });
+}
 
-module.exports = server;
+function shutdown() {
+  clearInterval(apiCacheGcTimer);
+  if (diskCacheGcTimer) clearInterval(diskCacheGcTimer);
+  httpsAgent.destroy();
+  apiAgent.destroy();
+  for (const session of http2Sessions.values()) {
+    if (!session.closed && !session.destroyed) {
+      session.destroy();
+    }
+  }
+  http2Sessions.clear();
+  if (server.listening) server.close();
+}
+
+if (require.main === module) {
+  startServer();
+  process.on('SIGTERM', () => { console.log('SIGTERM'); shutdown(); process.exit(0); });
+  process.on('SIGINT', () => { console.log('SIGINT'); shutdown(); process.exit(0); });
+}
+
+module.exports = {
+  server,
+  startServer,
+  shutdown,
+  _internals: {
+    parseQuery,
+    getPathname,
+    getApiKey,
+    getApiCacheKey,
+    isSafeImagePath,
+    getCacheFilePath,
+    cookieOptions,
+    createAdminSessionToken,
+    verifyAdminSessionToken,
+    checkAdminKey,
+    LRUCache,
+    cacheGet,
+    cacheSet,
+    collectFiles,
+    getDiskCacheBytes,
+    shouldRecordRequest,
+    isLocalOrPrivateIP,
+    hasForwardedClientIP
+  }
+};

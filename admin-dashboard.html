@@ -1,197 +1,340 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="aurora">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>TMDB 代理监控面板</title>
   <script>
-    // 立即设置背景，避免闪烁
     (function(){
       try {
+        const theme = localStorage.getItem('tmdb_theme') || 'aurora';
+        document.documentElement.dataset.theme = theme;
         const stored = localStorage.getItem('tmdb_bg');
         if (stored) {
           const { path } = JSON.parse(stored);
-          if (path) document.write('<style>body{background-image:url("/t/p/original'+path+'")!important}</style>');
+          if (path) document.write('<style>:root{--bg-image:url("/t/p/original'+path+'");}</style>');
         }
       } catch {}
     })();
   </script>
   <style>
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background:url('https://image.tmdb.org/t/p/original/1RgPyOhN4DRs225BGTlHJqCudII.jpg') center/cover fixed no-repeat;color:#e6e6e6;margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;transition:background-image .5s ease-in-out}
+    :root{color-scheme:dark;--bg:#050816;--panel:rgba(10,15,29,.78);--panel-strong:rgba(12,18,35,.92);--line:rgba(255,255,255,.13);--text:#f8fafc;--muted:#aeb8d4;--soft:#dbe4ff;--accent:#8b5cf6;--accent2:#22d3ee;--ok:#34d399;--warn:#fbbf24;--danger:#fb7185;--shadow:0 24px 80px rgba(0,0,0,.46);--glow-a:rgba(139,92,246,.34);--glow-b:rgba(34,211,238,.24);--bg-image:url('/t/p/original/1RgPyOhN4DRs225BGTlHJqCudII.jpg')}
+    :root[data-theme="slate"]{--bg:#020617;--panel:rgba(15,23,42,.84);--panel-strong:rgba(15,23,42,.95);--line:rgba(148,163,184,.18);--text:#f8fafc;--muted:#94a3b8;--soft:#e2e8f0;--accent:#38bdf8;--accent2:#818cf8;--ok:#22c55e;--warn:#f59e0b;--danger:#f43f5e;--glow-a:rgba(56,189,248,.2);--glow-b:rgba(129,140,248,.18)}
+    :root[data-theme="cinema"]{--bg:#12070a;--panel:rgba(24,10,14,.82);--panel-strong:rgba(33,13,18,.94);--line:rgba(253,186,116,.18);--text:#fff7ed;--muted:#fed7aa;--soft:#ffedd5;--accent:#f97316;--accent2:#f43f5e;--ok:#84cc16;--warn:#facc15;--danger:#fb7185;--glow-a:rgba(249,115,22,.28);--glow-b:rgba(244,63,94,.22)}
+    *{box-sizing:border-box}
+    body{font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background-color:var(--bg);background-image:var(--bg-image);background-position:center;background-size:cover;background-attachment:fixed;background-repeat:no-repeat;color:var(--text);margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:28px;transition:background-image .5s ease-in-out,color .2s ease,background-color .2s ease;position:relative;overflow-x:hidden}
+    body::before{content:"";position:fixed;inset:0;background:radial-gradient(circle at 18% 12%,var(--glow-a),transparent 34%),radial-gradient(circle at 82% 8%,var(--glow-b),transparent 30%),linear-gradient(135deg,rgba(3,7,18,.91),rgba(15,23,42,.7) 48%,rgba(2,6,23,.94));pointer-events:none;z-index:-2}
+    body::after{content:"";position:fixed;inset:0;background:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:42px 42px;mask-image:linear-gradient(to bottom,rgba(0,0,0,.75),transparent 82%);pointer-events:none;z-index:-1}
     header{display:none}
-    main{width:100%;max-width:960px;padding:0;background:transparent;border:0;box-shadow:none;backdrop-filter:none;box-sizing:border-box}
-    h1{font-size:18px;margin:0}
-    section{margin-top:16px}
-    grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
-    card{display:block;background:rgba(14,19,30,.88);border:1px solid rgba(255,255,255,.06);border-radius:18px;padding:16px;box-shadow:0 10px 25px rgba(0,0,0,.55)}
-    grid > card{height:150px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;text-align:center}
-    .stat-icon{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600;color:#fff;margin-bottom:6px}
-    .stat-purple{background:linear-gradient(135deg,rgba(140,124,255,.25),rgba(42,60,107,.35));}
-    .stat-blue{background:linear-gradient(135deg,rgba(72,149,255,.25),rgba(31,54,92,.35));}
-    .stat-green{background:linear-gradient(135deg,rgba(45,212,191,.25),rgba(17,71,69,.35));}
-    .stat-orange{background:linear-gradient(135deg,rgba(248,180,80,.25),rgba(83,55,19,.35));}
-    .stat-pink{background:linear-gradient(135deg,rgba(244,114,182,.25),rgba(90,25,55,.35));}
-    .stat-amber{background:linear-gradient(135deg,rgba(251,191,36,.25),rgba(92,60,18,.35));}
-    label{display:block;color:#cbd5f5;font-size:12px;font-weight:600;margin-bottom:4px}
-    .stat-sub{font-size:12px;color:#a5b4fc;margin-top:-6px;margin-bottom:4px}
-    value{display:block;font-size:22px;font-weight:700;text-align:center;margin-top:4px;color:#f9fafb}
-    pre{background:#05080e;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:14px;overflow:auto;max-height:32vh;font-size:12px;line-height:1.6;color:#e5e7eb}
-    .stat-list{width:100%;display:flex;flex-direction:column;gap:6px;font-size:18px;color:#f9fafb;margin-top:6px;align-items:center;font-weight:650}
-    .status-row{width:100%;text-align:center}
-    a{color:#61dafb;text-decoration:none}
-    .login{max-width:360px;margin:0 auto 10px;padding:22px 22px 18px;background:rgba(6,8,12,.9);border:1px solid rgba(148,163,184,.35);border-radius:18px;box-shadow:0 20px 40px rgba(0,0,0,.7)}
-    .welcome{margin-bottom:18px;text-align:center}
-    .welcome h2{font-size:28px;font-weight:700;color:#f9fafb;margin-bottom:6px}
-    .welcome p{font-size:14px;color:#cbd5f5;margin:0}
-    .login-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
-    .login-logo{display:flex;align-items:center;gap:10px}
-    .login-logo-mark{width:26px;height:26px;border-radius:8px;background:radial-gradient(circle at 30% 30%,#a855f7,#4f46e5);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:16px}
-    .login-title{font-size:18px;font-weight:650;color:#f9fafb}
-    .login-sub{font-size:11px;color:#a5b4fc}
-    .login-field{margin-bottom:14px}
-    .login label{display:block;font-size:12px;color:#cbd5f5;font-weight:500;margin-bottom:6px}
-    .login input{width:100%;max-width:260px;padding:11px 14px;border-radius:10px;border:1px solid #1f2933;background:#020617;color:#e5e7eb;outline:none;transition:border-color .15s,box-shadow .15s,background .15s}
-    .login input:focus{border-color:#8b5cf6;box-shadow:0 0 0 1px rgba(139,92,246,.55);background:#020617}
-    .login-extra{display:flex;align-items:center;gap:6px;font-size:12px;color:#9ca3af;margin-top:6px}
-    .login-extra input{width:auto;margin:0}
-    .login button{width:100%;padding:11px;border-radius:999px;border:0;background:linear-gradient(90deg,#8b5cf6,#6366f1);color:#fff;font-weight:600;cursor:pointer;margin-top:14px;font-size:14px;display:flex;align-items:center;justify-content:center;gap:6px}
-    .login button:hover{background:linear-gradient(90deg,#a855f7,#4f46e5)}
-    .login button:disabled{opacity:.6;cursor:not-allowed}
-    .badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#1f2933;color:#9caec8;font-size:11px;margin-left:8px}
-    .meter{position:relative;width:100%;height:8px;border-radius:999px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:10px}
-    .meter-fill{position:absolute;left:0;top:0;height:100%;border-radius:inherit;background:linear-gradient(90deg,#35d38a,#42b4ff);width:0%;transition:width .35s ease-out}
-    #v_status{height:70px;max-height:70px;overflow:auto}
-    #v_logs{height:420px;max-height:420px;overflow:auto}
-    .log-entry{display:flex;align-items:flex-start;font-size:12px;line-height:1.5;margin-bottom:6px}
-    .log-time{flex:0 0 120px;padding:3px 8px;border-radius:999px;background:#e5f0ff;color:#2563eb;text-align:center;margin-right:8px;white-space:nowrap}
-    .log-body{flex:1;padding:3px 8px;border-radius:6px;background:rgba(15,23,42,.85);color:#e5e7eb;border:1px solid rgba(148,163,184,.35)}
-    .log-body-main{margin-left:8px}
-    .chip-btn{font-size:11px;padding:4px 10px;border-radius:999px;border:0;cursor:pointer;background:rgba(96,165,250,.16);color:#cbd5ff;transition:background .2s,transform .1s}
-    .chip-btn:hover{background:rgba(96,165,250,.28);transform:translateY(-1px)}
-    .chip-btn.off{background:rgba(148,163,184,.18);color:#e5e7eb}
+    main{width:100%;max-width:1180px;padding:0;background:transparent;border:0;box-shadow:none;backdrop-filter:none}
+    section{margin-top:18px}
+    grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;grid-auto-rows:220px;align-items:stretch}
+    card{display:block;background:linear-gradient(145deg,var(--panel-strong),var(--panel));border:1px solid var(--line);border-radius:22px;padding:18px;box-shadow:0 14px 34px rgba(0,0,0,.28);backdrop-filter:blur(16px);position:relative;overflow:hidden}
+    card::before{content:"";position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.1),transparent 38%);opacity:.46;pointer-events:none}
+    card > *{position:relative}
+    grid > card{height:100%;min-height:0;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;text-align:left;transition:transform .18s ease,border-color .18s ease,background .18s ease}
+    grid > card:hover{transform:translateY(-3px);border-color:color-mix(in srgb,var(--accent) 52%,transparent);background:linear-gradient(145deg,color-mix(in srgb,var(--panel-strong) 90%,var(--accent) 10%),var(--panel))}
+    label{display:block;color:var(--soft);font-size:12px;font-weight:800;letter-spacing:.04em;margin-bottom:5px;text-transform:uppercase}
+    value{display:block;font-size:28px;font-weight:900;letter-spacing:-.04em;text-align:left;margin-top:4px;color:var(--text);line-height:1.05}
+    a{color:var(--accent2);text-decoration:none}
+    .login{width:min(100%,430px);margin:0 auto;padding:30px;background:linear-gradient(145deg,var(--panel-strong),var(--panel));border:1px solid rgba(255,255,255,.16);border-radius:30px;box-shadow:var(--shadow);backdrop-filter:blur(24px);position:relative;overflow:hidden}
+    .login::before{content:"";position:absolute;inset:-1px;background:radial-gradient(circle at 18% 0,var(--glow-a),transparent 32%),radial-gradient(circle at 92% 10%,var(--glow-b),transparent 28%);pointer-events:none}
+    .login > *{position:relative}
+    .login-header{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:28px}
+    .login-logo{display:flex;align-items:center;gap:12px}
+    .login-logo-mark{width:42px;height:42px;border-radius:16px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:20px;box-shadow:0 12px 30px color-mix(in srgb,var(--accent) 36%,transparent)}
+    .login-title{font-size:20px;font-weight:900;color:var(--text);letter-spacing:-.02em}
+    .login-sub{font-size:12px;color:var(--soft);border:1px solid color-mix(in srgb,var(--accent2) 30%,transparent);background:color-mix(in srgb,var(--accent2) 14%,transparent);border-radius:999px;padding:6px 10px;white-space:nowrap}
+    .login-field{margin-bottom:16px}
+    .login label{font-size:12px;color:var(--soft);font-weight:800;margin-bottom:8px;text-transform:none;letter-spacing:0}
+    .login input{width:100%;padding:14px 15px;border-radius:16px;border:1px solid rgba(148,163,184,.22);background:rgba(2,6,23,.72);color:var(--text);outline:none;transition:border-color .15s,box-shadow .15s,background .15s;font-size:14px}
+    .login input::placeholder{color:#667085}
+    .login input:focus{border-color:color-mix(in srgb,var(--accent) 86%,transparent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 18%,transparent);background:rgba(2,6,23,.9)}
+    .login-extra{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-top:8px}
+    .login-extra input{width:auto;margin:0;accent-color:var(--accent)}
+    .login button{width:100%;padding:14px;border-radius:18px;border:0;background:linear-gradient(135deg,var(--accent),#2563eb 55%,var(--accent2));color:#fff;font-weight:900;cursor:pointer;margin-top:18px;font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 16px 32px rgba(37,99,235,.28);transition:transform .15s ease,box-shadow .15s ease,filter .15s ease}
+    .login button:hover{transform:translateY(-1px);box-shadow:0 20px 40px rgba(37,99,235,.36);filter:saturate(1.08)}
+    .login button:disabled{opacity:.65;cursor:not-allowed;transform:none;box-shadow:none}
+    .row{min-height:20px;margin-top:12px;color:#c4b5fd;font-size:13px;text-align:center}
+    .welcome{margin-bottom:16px;padding:20px 22px;background:linear-gradient(135deg,var(--panel-strong),color-mix(in srgb,var(--panel) 86%,transparent));border:1px solid var(--line);border-radius:24px;box-shadow:var(--shadow);backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:space-between;gap:18px;text-align:left;position:relative;overflow:hidden}
+    .welcome::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 12%,transparent),transparent 48%,color-mix(in srgb,var(--accent2) 10%,transparent));pointer-events:none}
+    .welcome > *{position:relative}
+    .welcome h2{font-size:30px;font-weight:950;color:var(--text);margin:0 0 6px;letter-spacing:-.05em}
+    .welcome p{font-size:14px;color:var(--muted);margin:0}
+    .meta-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .pill{display:inline-flex;gap:7px;align-items:center;padding:7px 10px;border-radius:999px;background:rgba(15,23,42,.6);border:1px solid rgba(148,163,184,.2);color:var(--soft);font-size:12px;font-weight:800;white-space:nowrap}
+    .pill.ok{background:rgba(34,197,94,.12);border-color:rgba(74,222,128,.22);color:#86efac}
+    .pill.warn{background:rgba(245,158,11,.13);border-color:rgba(251,191,36,.26);color:#fde68a}
+    .pill.danger{background:rgba(251,113,133,.14);border-color:rgba(251,113,133,.3);color:#fecdd3}
+    .panel-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+    .stat-icon{width:44px;height:42px;border-radius:15px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:950;color:#fff;margin-bottom:10px;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 10px 24px color-mix(in srgb,var(--accent) 28%,transparent);letter-spacing:.03em}
+    .stat-sub{font-size:12px;color:var(--muted);margin:0 0 10px;line-height:1.35}
+    .stat-list{width:100%;display:flex;flex-direction:column;gap:7px;font-size:15px;color:var(--text);margin-top:8px;align-items:stretch;font-weight:800}
+    .status-row{width:100%;display:flex;align-items:center;justify-content:space-between;border-radius:12px;background:rgba(15,23,42,.62);border:1px solid rgba(148,163,184,.14);padding:6px 8px;text-align:left}
+    .status-bars{display:flex;align-items:flex-end;gap:6px;width:100%;height:90px;margin-top:8px;padding-bottom:18px}
+    .status-bar{flex:1;min-width:0;border-radius:8px 8px 6px 6px;background:linear-gradient(180deg,var(--accent2),var(--accent));position:relative;transition:height .25s ease-out}
+    .status-bar.warn{background:linear-gradient(180deg,#fbbf24,#f97316)}
+    .status-bar.err{background:linear-gradient(180deg,#fb7185,#e11d48)}
+    .status-bar-label{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:10px;color:#cbd5e1;white-space:nowrap}
+    .status-bar-count{position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:10px;color:#e2e8f0;white-space:nowrap}
+    .meter{position:relative;width:100%;height:9px;border-radius:999px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:11px}
+    .meter-fill{position:absolute;left:0;top:0;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--ok),var(--accent2));width:0%;transition:width .35s ease-out}
+    .meter-fill.warn{background:linear-gradient(90deg,#f59e0b,#f97316)}
+    .meter-fill.danger{background:linear-gradient(90deg,#ef4444,#f43f5e)}
+    .metric-alert{display:none;margin-bottom:14px;padding:11px 13px;border-radius:14px;border:1px solid rgba(251,113,133,.4);background:rgba(127,29,29,.45);color:#fecaca;font-size:13px;font-weight:800;backdrop-filter:blur(12px)}
+    .chip-row{display:flex;gap:6px;flex-wrap:wrap;width:100%;margin-top:10px}
+    .mini-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 8px;border-radius:999px;background:rgba(15,23,42,.64);border:1px solid rgba(148,163,184,.16);font-size:11px;color:var(--soft);font-weight:800;max-width:100%}
+    .mini-chip.hit{background:rgba(34,197,94,.12);border-color:rgba(74,222,128,.2);color:#bbf7d0}
+    .mini-chip.miss{background:rgba(251,191,36,.12);border-color:rgba(251,191,36,.22);color:#fde68a}
+    .mini-chip.bad{background:rgba(251,113,133,.12);border-color:rgba(251,113,133,.25);color:#fecdd3}
+    #v_status{display:none}
+    #v_disk_path,#v_mem_count,#v_err_rate{width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .log-panel{min-height:0}
+    .log-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+    .log-title-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .log-actions,.log-filters{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .log-filters{margin-bottom:10px}
+    .log-filter.active{background:linear-gradient(135deg,var(--accent),var(--accent2));border-color:transparent;color:#fff;box-shadow:0 10px 24px color-mix(in srgb,var(--accent) 24%,transparent)}
+    .log-filter[data-filter="5xx"].active,.log-filter[data-filter="4xx"].active{background:linear-gradient(135deg,#ef4444,#f97316)}
+    .logs{height:430px;max-height:430px;overflow:auto;border-radius:18px;background:rgba(2,6,23,.72);border:1px solid rgba(148,163,184,.18);padding:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
+    .log-entry{display:grid;grid-template-columns:146px 72px 72px 80px minmax(0,1fr) 58px;align-items:center;font-size:12px;line-height:1.5;margin-bottom:8px;gap:8px}
+    .log-entry.error{padding:6px;border-radius:18px;background:rgba(251,113,133,.06);border:1px solid rgba(251,113,133,.16)}
+    .log-time,.log-pill,.log-body{border-radius:999px;border:1px solid rgba(148,163,184,.18);background:rgba(15,23,42,.76);color:#e5e7eb;padding:6px 9px;min-width:0}
+    .log-time{color:#bfdbfe;text-align:center;white-space:nowrap;background:rgba(219,234,254,.12);border-color:rgba(147,197,253,.18)}
+    .log-pill{text-align:center;font-weight:900;white-space:nowrap}
+    .log-pill.ok{color:#bbf7d0;background:rgba(34,197,94,.12);border-color:rgba(74,222,128,.2)}
+    .log-pill.warn{color:#fde68a;background:rgba(251,191,36,.12);border-color:rgba(251,191,36,.22)}
+    .log-pill.bad{color:#fecdd3;background:rgba(251,113,133,.12);border-color:rgba(251,113,133,.25)}
+    .log-pill.hit{color:#bae6fd;background:rgba(14,165,233,.12);border-color:rgba(125,211,252,.22)}
+    .log-pill.miss{color:#ddd6fe;background:rgba(139,92,246,.12);border-color:rgba(167,139,250,.22)}
+    .log-body{border-radius:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;word-break:normal;cursor:pointer}
+    .log-body.expanded{white-space:normal;overflow:visible;text-overflow:clip;word-break:break-all;border-radius:14px;background:rgba(15,23,42,.92)}
+    .log-copy{border-radius:999px;border:1px solid rgba(148,163,184,.18);background:rgba(96,165,250,.12);color:#dbeafe;padding:6px 9px;font-size:12px;font-weight:900;cursor:pointer;transition:background .15s,border-color .15s,transform .1s}
+    .log-copy:hover{background:rgba(96,165,250,.24);border-color:rgba(147,197,253,.36);transform:translateY(-1px)}
+    .log-copy.done{color:#bbf7d0;background:rgba(34,197,94,.12);border-color:rgba(74,222,128,.22)}
+    .chip-btn{font-size:12px;padding:8px 12px;border-radius:999px;border:1px solid rgba(148,163,184,.2);cursor:pointer;background:rgba(96,165,250,.14);color:#dbeafe;transition:background .2s,transform .1s,border-color .2s;font-weight:900}
+    .chip-btn:hover{background:rgba(96,165,250,.24);border-color:rgba(147,197,253,.38);transform:translateY(-1px)}
+    .chip-btn.danger{background:rgba(251,113,133,.12);border-color:rgba(251,113,133,.24);color:#fecdd3}
+    .chip-btn.danger:hover{background:rgba(251,113,133,.22);border-color:rgba(251,113,133,.44)}
+    .chip-btn.off{background:rgba(148,163,184,.16);color:#e5e7eb}
+    @media (max-width:1100px){grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:205px}.log-entry{grid-template-columns:140px 64px 64px 76px minmax(0,1fr) 58px}}
+    @media (max-width:760px){body{padding:14px;align-items:flex-start;background-attachment:scroll}main{max-width:100%}.welcome{display:block;padding:18px}.welcome h2{font-size:24px}.panel-actions{justify-content:flex-start;margin-top:16px}grid{grid-template-columns:1fr;grid-auto-rows:auto}grid > card{min-height:150px}.logs{height:50vh;max-height:50vh}.log-entry{grid-template-columns:1fr;align-items:stretch}.log-time,.log-pill{text-align:left}.log-copy{width:max-content}.login{padding:24px;border-radius:24px}.login-header{align-items:flex-start}.login-sub{display:none}}
   </style>
 </head>
 <body>
   <header><h1>TMDB 代理监控面板</h1></header>
   <main>
-    <div id="login" class="login">
+    <div id="boot" class="login" aria-label="加载状态" style="display:none">
+      <div class="login-header">
+        <div class="login-logo">
+          <div class="login-logo-mark">T</div>
+          <div class="login-title">正在恢复登录状态</div>
+        </div>
+        <div class="login-sub">Loading</div>
+      </div>
+      <div class="row" style="text-align:left;color:var(--muted)">正在检查 Cookie，请稍候...</div>
+    </div>
+    <div id="login" class="login" aria-label="登录面板" style="display:none">
       <div class="login-header">
         <div class="login-logo">
           <div class="login-logo-mark">T</div>
           <div class="login-title">TMDB 管理登录</div>
         </div>
-        <div class="login-sub">CN · 简体中文</div>
+        <div class="login-sub">Zero Dependency</div>
       </div>
       <div class="login-field">
-        <label>管理密钥</label>
-        <input id="key" type="password" placeholder="请输入 ADMIN_API_KEY" />
+        <label for="key">管理密钥</label>
+        <input id="key" type="password" placeholder="请输入 ADMIN_API_KEY" autocomplete="current-password" />
       </div>
       <div class="login-extra">
         <input id="keep" type="checkbox" checked disabled />
         <span>保持登录（基于 Cookie）</span>
       </div>
-      <button id="btn">
-        <span>⮕</span>
-        <span>登录</span>
-      </button>
+      <button id="btn" aria-label="登录"><span>登录</span></button>
       <div id="msg" class="row"></div>
     </div>
     <section id="content" style="display:none">
+      <div id="metric_alert" class="metric-alert" role="status" aria-live="polite"></div>
       <div class="welcome">
-        <h2>欢迎使用 TMDB 管理面板</h2>
-        <p>实时掌握代理运行状态，缓存命中与日志一目了然</p>
-        <p style="margin-top:8px;font-size:12px;color:#39ff14;">版本: <span id="v_version">-</span> | 运行时间: <span id="v_uptime">-</span></p>
+        <div>
+          <h2>TMDB 代理监控</h2>
+          <p>实时掌握代理运行状态、缓存命中与最近访问记录</p>
+          <div class="meta-line">
+            <span id="connection_state" class="pill warn">等待刷新</span>
+            <span class="pill">版本 <span id="v_version">-</span></span>
+            <span class="pill">运行 <span id="v_uptime">-</span></span>
+            <span class="pill">刷新 <span id="v_refreshed">-</span></span>
+          </div>
+        </div>
+        <div class="panel-actions">
+          <button id="btn_refresh" class="chip-btn" aria-label="立即刷新">立即刷新</button>
+          <button id="btn_theme" class="chip-btn" aria-label="切换风格">风格：星云</button>
+          <button id="btn_changebg" class="chip-btn" aria-label="切换背景">切换背景</button>
+          <button id="btn_logout" class="chip-btn danger" aria-label="退出登录">退出登录</button>
+        </div>
       </div>
       <grid>
-        <card>
-          <div class="stat-icon" style="background:linear-gradient(135deg,#7c3aed,#6d28d9);">📊</div>
+        <card class="metric-card">
+          <div class="stat-icon">REQ</div>
           <label>总请求数</label>
           <div class="stat-sub">累计通过代理的全部请求</div>
           <value id="v_total">-</value>
         </card>
-        <card>
-          <div class="stat-icon" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);">🖼️</div>
-          <label>图片请求</label>
-          <div class="stat-sub">全部图片加载次数</div>
-          <value id="v_img">-</value>
-        </card>
-        <card>
-          <div class="stat-icon" style="background:linear-gradient(135deg,#f97316,#ea580c);">🎯</div>
-          <label>图片缓存 内存/磁盘/未命中</label>
-          <div class="stat-sub">实时缓存命中情况</div>
-          <value id="v_img_cache">-</value>
-        </card>
-        <card>
-          <div class="stat-icon" style="background:linear-gradient(135deg,#0ea5e9,#0284c7);">🔗</div>
+        <card class="metric-card">
+          <div class="stat-icon">API</div>
           <label>API 请求</label>
           <div class="stat-sub">所有 /3/* 接口调用</div>
           <value id="v_api">-</value>
         </card>
-        <card>
-          <div class="stat-icon" style="background:linear-gradient(135deg,#22c55e,#16a34a);">⚡</div>
-          <label>API 缓存命中 / 未命中</label>
-          <div class="stat-sub">API 缓存命中情况</div>
-          <value id="v_api_cache">-</value>
+        <card class="metric-card">
+          <div class="stat-icon">IMG</div>
+          <label>图片缓存命中率</label>
+          <div class="stat-sub">内存 + 磁盘命中 / 图片请求</div>
+          <value id="v_img_rate">-</value>
+          <div id="v_img_cache" class="chip-row"></div>
+        </card>
+        <card class="metric-card">
+          <div class="stat-icon">TTL</div>
+          <label>API 缓存命中率</label>
+          <div class="stat-sub">API 命中 / API 总请求</div>
+          <value id="v_api_rate">-</value>
+          <div id="v_api_cache" class="chip-row"></div>
         </card>
         <card>
-          <div class="stat-icon" style="background:linear-gradient(135deg,#facc15,#eab308);">💾</div>
+          <div class="stat-icon">RATE</div>
+          <label>最近1分钟</label>
+          <div class="stat-sub">请求速率与错误率（基于日志窗口）</div>
+          <value id="v_rps">-</value>
+          <div style="font-size:12px;color:var(--muted);margin-top:6px" id="v_err_rate">-</div>
+        </card>
+        <card>
+          <div class="stat-icon">DSK</div>
           <label>磁盘缓存占用</label>
           <value id="v_disk_usage">-</value>
           <div class="meter"><div id="bar_disk" class="meter-fill"></div></div>
-          <div style="font-size:12px;color:#bac1d4;margin-top:6px" id="v_disk_path"></div>
+          <div style="font-size:12px;color:var(--muted);margin-top:6px" id="v_disk_path"></div>
         </card>
         <card>
-          <div class="stat-icon" style="background:linear-gradient(135deg,#ec4899,#db2777);">🧠</div>
+          <div class="stat-icon">MEM</div>
           <label>内存缓存占用</label>
           <value id="v_mem_usage">-</value>
           <div class="meter"><div id="bar_mem" class="meter-fill"></div></div>
-          <div style="font-size:12px;color:#bac1d4;margin-top:6px" id="v_mem_count"></div>
+          <div style="font-size:12px;color:var(--muted);margin-top:6px" id="v_mem_count"></div>
         </card>
         <card>
-          <div class="stat-icon" style="background:linear-gradient(135deg,#a855f7,#9333ea);">📨</div>
+          <div class="stat-icon">HTTP</div>
           <label>状态码统计</label>
-          <div class="stat-sub">最近窗口的状态分布</div>
+          <div class="stat-sub">最近窗口状态分布</div>
+          <div id="v_status_bars" class="status-bars"></div>
           <div id="v_status" class="stat-list"></div>
-        </card>
-        <card>
-          <div class="stat-icon" style="background:linear-gradient(135deg,#64748b,#475569);">⚙️</div>
-          <label>面板控制</label>
-          <div style="display:flex;gap:8px;margin-top:auto;width:100%;flex-wrap:wrap">
-            <button id="btn_changebg" class="chip-btn" style="flex:1;min-width:88px">切换背景</button>
-            <button id="btn_clear_cache" class="chip-btn" style="flex:1;min-width:88px">清空缓存</button>
-            <button id="btn_logout" class="chip-btn" style="flex:1;min-width:88px">退出登录</button>
-          </div>
         </card>
       </grid>
       <section>
-        <card>
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-            <label style="margin-bottom:0">最近访问日志</label>
-            <button id="btn_scroll" class="chip-btn">自动滚动：开</button>
+        <card class="log-panel">
+          <div class="log-toolbar">
+            <div class="log-title-row">
+              <label style="margin-bottom:0">最近访问日志</label>
+              <span id="v_log_filter_info" class="pill">全部 0/0</span>
+            </div>
+            <div class="log-actions">
+              <button id="btn_pause" class="chip-btn" aria-label="暂停自动刷新">刷新：开</button>
+              <button id="btn_scroll" class="chip-btn" aria-label="切换日志自动滚动">滚动：开</button>
+              <button id="btn_clearlogs" class="chip-btn off" aria-label="清空前端日志显示">清空显示</button>
+            </div>
           </div>
-          <pre id="v_logs"></pre>
+          <div class="log-filters" role="group" aria-label="日志筛选">
+            <button class="chip-btn log-filter active" data-filter="all">全部</button>
+            <button class="chip-btn log-filter" data-filter="5xx">5xx错误</button>
+            <button class="chip-btn log-filter" data-filter="4xx">4xx异常</button>
+            <button class="chip-btn log-filter" data-filter="slow">慢请求</button>
+            <button class="chip-btn log-filter" data-filter="miss">缓存未命中</button>
+            <button class="chip-btn log-filter" data-filter="api">只看 API</button>
+            <button class="chip-btn log-filter" data-filter="image">只看图片</button>
+          </div>
+          <div id="v_logs" class="logs" aria-live="polite"></div>
         </card>
       </section>
     </section>
   </main>
   <script>
+    const DEFAULT_BG = '/t/p/original/1RgPyOhN4DRs225BGTlHJqCudII.jpg';
+    const THEMES = [
+      ['aurora', '星云'],
+      ['slate', '冷灰'],
+      ['cinema', '影院']
+    ];
     const keyInput = document.getElementById('key');
     const btn = document.getElementById('btn');
     const msg = document.getElementById('msg');
+    const bootBox = document.getElementById('boot');
     const loginBox = document.getElementById('login');
     const content = document.getElementById('content');
     const btnScroll = document.getElementById('btn_scroll');
+    const btnPause = document.getElementById('btn_pause');
+    const btnRefresh = document.getElementById('btn_refresh');
+    const btnTheme = document.getElementById('btn_theme');
     const btnLogout = document.getElementById('btn_logout');
+    const metricAlert = document.getElementById('metric_alert');
+    const connectionState = document.getElementById('connection_state');
+    const logFilterInfo = document.getElementById('v_log_filter_info');
+    const logFilterButtons = Array.from(document.querySelectorAll('.log-filter'));
+    const LOG_FILTERS = {
+      all: { label: '全部', test: () => true },
+      '5xx': { label: '5xx错误', test: l => Number(l.status) >= 500 },
+      '4xx': { label: '4xx异常', test: l => Number(l.status) >= 400 && Number(l.status) < 500 },
+      slow: { label: '慢请求', test: l => Number(l.durationMs) >= 1000 },
+      miss: { label: '缓存未命中', test: l => String(l.cache || '').toUpperCase().includes('MISS') },
+      api: { label: '只看 API', test: l => String(l.type || '').toLowerCase() === 'api' },
+      image: { label: '只看图片', test: l => String(l.type || '').toLowerCase() === 'image' }
+    };
     let refreshTimer = null;
     let autoScroll = true;
+    let refreshPaused = false;
+    let currentLogFilter = 'all';
+    let latestLogRows = [];
+    let healthTick = 0;
+    let bgLoaded = false;
 
-    function getCookie(name) {
-      const value = document.cookie.split('; ').find(row => row.startsWith(name + '='));
-      return value ? decodeURIComponent(value.split('=')[1]) : '';
+    function setTheme(theme) {
+      const found = THEMES.find(([key]) => key === theme) || THEMES[0];
+      document.documentElement.dataset.theme = found[0];
+      localStorage.setItem('tmdb_theme', found[0]);
+      btnTheme.textContent = `风格：${found[1]}`;
     }
 
-    function clearCookie(name) {
-      document.cookie = name + '=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+    function setBackground(url) {
+      document.documentElement.style.setProperty('--bg-image', `url('${url}')`);
+    }
+
+    function setConnection(kind, text) {
+      connectionState.className = `pill ${kind}`;
+      connectionState.textContent = text;
+    }
+
+    function formatNumber(value) {
+      return new Intl.NumberFormat('zh-CN').format(Number(value) || 0);
+    }
+
+    function formatPct(part, total) {
+      if (!total) return '0.0%';
+      return `${((part / total) * 100).toFixed(1)}%`;
+    }
+
+    function setChips(id, items) {
+      const box = document.getElementById(id);
+      box.textContent = '';
+      for (const item of items) {
+        const chip = document.createElement('span');
+        chip.className = `mini-chip ${item.kind || ''}`.trim();
+        chip.textContent = `${item.label}: ${item.value}`;
+        box.appendChild(chip);
+      }
+    }
+
+    async function fetchJSON(url, options) {
+      const resp = await fetch(url, options);
+      if (!resp.ok) throw new Error(resp.status === 404 ? '登录失效或未授权' : `请求失败 ${resp.status}`);
+      return resp.json();
     }
 
     async function login() {
@@ -214,14 +357,14 @@
           btn.disabled = false;
           return;
         }
-        // set cookie for subsequent admin requests
-        document.cookie = 'admin_key=' + encodeURIComponent(key) + '; Path=/; SameSite=Lax';
         msg.textContent = '登录成功';
+        btn.disabled = false;
+        bootBox.style.display = 'none';
         loginBox.style.display = 'none';
         content.style.display = 'block';
-        loadDashboard();
+        loadDashboard({ force: true });
         if (refreshTimer) clearInterval(refreshTimer);
-        refreshTimer = setInterval(loadDashboard, 5000);
+        refreshTimer = setInterval(() => loadDashboard(), 5000);
       } catch (e) {
         console.error(e);
         msg.textContent = '登录失败，请稍后重试';
@@ -229,31 +372,25 @@
       }
     }
 
-    let bgLoaded = false;
-
     async function loadRandomBg(force = false) {
       if (bgLoaded && !force) return;
-      
-      // 检查本地存储，1天换1次（除非强制刷新）
       if (!force) {
         const stored = localStorage.getItem('tmdb_bg');
         if (stored) {
           try {
             const { path, ts } = JSON.parse(stored);
-            if (path && Date.now() - ts < 86400000) { // 24小时
-              document.body.style.backgroundImage = `url('/t/p/original${path}')`;
+            if (path && Date.now() - ts < 86400000) {
+              setBackground(`/t/p/original${path}`);
               bgLoaded = true;
               return;
             }
           } catch {}
         }
       }
-      
       try {
-        const resp = await fetch('/admin/random-bg');
-        const data = await resp.json();
+        const data = await fetchJSON('/admin/random-bg');
         if (data.backdrop_path) {
-          document.body.style.backgroundImage = `url('/t/p/original${data.backdrop_path}')`;
+          setBackground(`/t/p/original${data.backdrop_path}`);
           localStorage.setItem('tmdb_bg', JSON.stringify({ path: data.backdrop_path, ts: Date.now() }));
           bgLoaded = true;
         }
@@ -262,155 +399,355 @@
       }
     }
 
-    // 右键切换壁纸 - 已移除
+    function classifyStatus(status) {
+      const code = Number(status) || 0;
+      if (code >= 500) return 'bad';
+      if (code >= 400) return 'warn';
+      return 'ok';
+    }
 
-    async function loadDashboard() {
+    function classifyCache(cache) {
+      const text = String(cache || '-').toUpperCase();
+      if (text.includes('HIT')) return 'hit';
+      if (text.includes('MISS')) return 'miss';
+      return '';
+    }
+
+    function copyText(text) {
+      if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      textarea.remove();
+      return Promise.resolve();
+    }
+
+    function toLogNode(l) {
+      const ts = new Date(l.time).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false });
+      const isError = Number(l.status) >= 400;
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${isError ? 'error' : ''}`.trim();
+
+      const time = document.createElement('div');
+      time.className = 'log-time';
+      time.textContent = ts;
+
+      const status = document.createElement('div');
+      status.className = `log-pill ${classifyStatus(l.status)}`;
+      status.textContent = String(l.status || '-');
+
+      const type = document.createElement('div');
+      type.className = 'log-pill';
+      type.textContent = String(l.type || 'other').toUpperCase();
+
+      const cache = document.createElement('div');
+      cache.className = `log-pill ${classifyCache(l.cache)}`;
+      cache.textContent = String(l.cache || '-').toUpperCase();
+
+      const body = document.createElement('div');
+      body.className = `log-body ${isError ? 'expanded' : ''}`.trim();
+      body.title = `${l.method} ${l.path}`;
+      body.textContent = `${l.method} ${l.path} · ${l.durationMs}ms · ${l.ip}`;
+      body.addEventListener('click', () => body.classList.toggle('expanded'));
+
+      const copy = document.createElement('button');
+      copy.type = 'button';
+      copy.className = 'log-copy';
+      copy.textContent = '复制';
+      copy.title = '复制完整请求路径';
+      copy.addEventListener('click', async (event) => {
+        event.stopPropagation();
+        await copyText(String(l.path || ''));
+        copy.textContent = '已复制';
+        copy.classList.add('done');
+        setTimeout(() => {
+          copy.textContent = '复制';
+          copy.classList.remove('done');
+        }, 1200);
+      });
+
+      entry.append(time, status, type, cache, body, copy);
+      return entry;
+    }
+
+    function updateAlert(diskPct, memPct) {
+      if (diskPct >= 90 || memPct >= 90) {
+        metricAlert.style.display = 'block';
+        metricAlert.textContent = `资源告警：${diskPct >= 90 ? '磁盘缓存' : '内存缓存'}已超过 90%，建议尽快清理。`;
+        return;
+      }
+      if (diskPct >= 80 || memPct >= 80) {
+        metricAlert.style.display = 'block';
+        metricAlert.textContent = `资源预警：${diskPct >= 80 ? '磁盘缓存' : '内存缓存'}已超过 80%，建议关注增长趋势。`;
+        return;
+      }
+      metricAlert.style.display = 'none';
+      metricAlert.textContent = '';
+    }
+
+    function renderStatusBars(statusMap) {
+      const statusBars = document.getElementById('v_status_bars');
+      statusBars.textContent = '';
+      const statusEntries = Object.entries(statusMap || {}).sort((a, b) => Number(a[0]) - Number(b[0]));
+      const maxCount = statusEntries.reduce((mx, [, count]) => Math.max(mx, Number(count) || 0), 0) || 1;
+      if (statusEntries.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'status-row';
+        empty.textContent = '暂无数据';
+        statusBars.appendChild(empty);
+        return;
+      }
+      for (const [code, count] of statusEntries.slice(0, 8)) {
+        const n = Number(count) || 0;
+        const h = Math.max(8, Math.round((n / maxCount) * 100));
+        const bar = document.createElement('div');
+        const codeNum = Number(code) || 0;
+        bar.className = `status-bar ${codeNum >= 500 ? 'err' : codeNum >= 400 ? 'warn' : ''}`.trim();
+        bar.style.height = `${h}%`;
+        const countEl = document.createElement('span');
+        countEl.className = 'status-bar-count';
+        countEl.textContent = n;
+        const labelEl = document.createElement('span');
+        labelEl.className = 'status-bar-label';
+        labelEl.textContent = code;
+        bar.append(countEl, labelEl);
+        statusBars.appendChild(bar);
+      }
+    }
+
+    function getFilteredLogs(rows) {
+      const filter = LOG_FILTERS[currentLogFilter] || LOG_FILTERS.all;
+      return rows.filter(filter.test);
+    }
+
+    function updateLogFilterInfo(filteredCount, totalCount) {
+      const filter = LOG_FILTERS[currentLogFilter] || LOG_FILTERS.all;
+      logFilterInfo.textContent = `${filter.label} ${filteredCount}/${totalCount}`;
+      logFilterInfo.className = `pill ${currentLogFilter === '5xx' ? 'danger' : ['4xx', 'slow', 'miss'].includes(currentLogFilter) ? 'warn' : ''}`.trim();
+      for (const button of logFilterButtons) {
+        const key = button.dataset.filter || 'all';
+        const item = LOG_FILTERS[key] || LOG_FILTERS.all;
+        const count = latestLogRows.filter(item.test).length;
+        button.textContent = `${item.label} ${count}`;
+        button.classList.toggle('active', key === currentLogFilter);
+      }
+    }
+
+    function renderLogs(rows) {
+      latestLogRows = Array.isArray(rows) ? rows : [];
+      const logBox = document.getElementById('v_logs');
+      const filtered = getFilteredLogs(latestLogRows).slice(-200);
+      updateLogFilterInfo(filtered.length, latestLogRows.length);
+      logBox.textContent = '';
+
+      if (latestLogRows.length === 0 || filtered.length === 0) {
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        const body = document.createElement('div');
+        body.className = 'log-body';
+        body.textContent = latestLogRows.length === 0 ? '暂无访问日志' : '当前筛选无匹配日志';
+        entry.appendChild(body);
+        logBox.appendChild(entry);
+        return;
+      }
+
+      filtered.forEach(l => logBox.appendChild(toLogNode(l)));
+      if (autoScroll) logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    async function loadDashboard(options = {}) {
+      if (refreshPaused && !options.force) return;
       try {
+        if (options.force) setConnection('warn', '正在刷新');
         loadRandomBg();
-        const m = await fetch('/admin/metrics').then(r => r.json());
-        const logs = await fetch('/admin/logs?limit=200').then(r => r.json());
-        const health = await fetch('/health').then(r => r.json()).catch(() => ({}));
+        const needHealth = healthTick % 6 === 0;
+        healthTick++;
+        const [m, logs, health] = await Promise.all([
+          fetchJSON('/admin/metrics'),
+          fetchJSON('/admin/logs?limit=200'),
+          needHealth ? fetchJSON('/health').catch(() => ({})) : Promise.resolve(null)
+        ]);
 
-        // 版本和运行时间
-        if (health.version) {
-          document.getElementById('v_version').textContent = health.version;
-        }
-        if (health.uptime) {
+        if (health && health.version) document.getElementById('v_version').textContent = health.version;
+        if (health && health.uptime) {
           const h = Math.floor(health.uptime / 3600);
           const m2 = Math.floor((health.uptime % 3600) / 60);
           document.getElementById('v_uptime').textContent = `${h}小时${m2}分钟`;
         }
 
-        document.getElementById('v_total').textContent = m.metrics.total;
-        document.getElementById('v_img').textContent = m.metrics.image.total;
-        document.getElementById('v_api').textContent = m.metrics.api.total;
-        document.getElementById('v_img_cache').textContent = `${m.metrics.image.mem_hit}/${m.metrics.image.disk_hit}/${m.metrics.image.miss}`;
-        document.getElementById('v_api_cache').textContent = `${m.metrics.api.hit}/${m.metrics.api.miss}`;
+        document.getElementById('v_total').textContent = formatNumber(m.metrics.total);
+        document.getElementById('v_api').textContent = formatNumber(m.metrics.api.total);
 
-        // 磁盘缓存
+        const imageHit = Number(m.metrics.image.mem_hit || 0) + Number(m.metrics.image.disk_hit || 0);
+        const imageMiss = Number(m.metrics.image.miss || 0);
+        const imageTotal = imageHit + imageMiss;
+        document.getElementById('v_img_rate').textContent = formatPct(imageHit, imageTotal);
+        setChips('v_img_cache', [
+          { label: '内存', value: formatNumber(m.metrics.image.mem_hit), kind: 'hit' },
+          { label: '磁盘', value: formatNumber(m.metrics.image.disk_hit), kind: 'hit' },
+          { label: '未命中', value: formatNumber(imageMiss), kind: 'miss' }
+        ]);
+
+        const apiHit = Number(m.metrics.api.hit || 0);
+        const apiMiss = Number(m.metrics.api.miss || 0);
+        document.getElementById('v_api_rate').textContent = formatPct(apiHit, apiHit + apiMiss);
+        setChips('v_api_cache', [
+          { label: '命中', value: formatNumber(apiHit), kind: 'hit' },
+          { label: '未命中', value: formatNumber(apiMiss), kind: 'miss' }
+        ]);
+
+        let diskPct = 0;
         if (m.disk_cache && m.disk_cache.enabled) {
           const usedGB = m.disk_cache.bytes / (1024 * 1024 * 1024);
           const maxGB = m.disk_cache.max_bytes / (1024 * 1024 * 1024);
-          const diskPct = maxGB > 0 ? Math.min(100, (usedGB / maxGB) * 100) : 0;
+          diskPct = maxGB > 0 ? Math.min(100, (usedGB / maxGB) * 100) : 0;
           document.getElementById('v_disk_usage').textContent = `${usedGB.toFixed(2)} GB / ${maxGB.toFixed(2)} GB`;
           document.getElementById('v_disk_path').textContent = `目录: ${m.disk_cache.dir}`;
-          document.getElementById('bar_disk').style.width = diskPct + '%';
+          const barDisk = document.getElementById('bar_disk');
+          barDisk.style.width = diskPct + '%';
+          barDisk.classList.toggle('warn', diskPct >= 80 && diskPct < 90);
+          barDisk.classList.toggle('danger', diskPct >= 90);
         } else {
           document.getElementById('v_disk_usage').textContent = '已关闭';
           document.getElementById('v_disk_path').textContent = '';
           document.getElementById('bar_disk').style.width = '0%';
         }
 
-        // 内存缓存
+        let memPct = 0;
         if (m.mem_cache) {
           const usedMB = m.mem_cache.bytes / (1024 * 1024);
           const maxMB = m.mem_cache.max_bytes / (1024 * 1024);
-          const memPct = maxMB > 0 ? Math.min(100, (usedMB / maxMB) * 100) : 0;
+          memPct = maxMB > 0 ? Math.min(100, (usedMB / maxMB) * 100) : 0;
           document.getElementById('v_mem_usage').textContent = `${usedMB.toFixed(1)} MB / ${maxMB.toFixed(0)} MB`;
-          document.getElementById('v_mem_count').textContent = `缓存图片: ${m.mem_cache.size} 张`;
-          document.getElementById('bar_mem').style.width = memPct + '%';
+          document.getElementById('v_mem_count').textContent = `缓存图片: ${formatNumber(m.mem_cache.size)} 张`;
+          const barMem = document.getElementById('bar_mem');
+          barMem.style.width = memPct + '%';
+          barMem.classList.toggle('warn', memPct >= 80 && memPct < 90);
+          barMem.classList.toggle('danger', memPct >= 90);
         } else {
           document.getElementById('v_mem_usage').textContent = '-';
           document.getElementById('v_mem_count').textContent = '';
           document.getElementById('bar_mem').style.width = '0%';
         }
+        updateAlert(diskPct, memPct);
+        renderStatusBars(m.metrics.byStatus);
 
-        const statusList = document.getElementById('v_status');
-        const statusRows = Object.entries(m.metrics.byStatus)
-          .map(([code, count]) => `<div class="status-row"><span>${code}</span> / <span>${count}</span></div>`)
-          .join('');
-        statusList.innerHTML = statusRows || '<div class="status-row">暂无数据</div>';
-
-        const logBox = document.getElementById('v_logs');
-        const logHtml = logs.map(l => {
-          const ts = new Date(l.time).toLocaleString('zh-CN', {
-            timeZone: 'Asia/Shanghai',
-            hour12: false
-          });
-          const msg = `${l.method} ${l.path}  状态:${l.status}  耗时:${l.durationMs}ms  IP:${l.ip}  缓存:${l.cache || '-'}`;
-          return `<div class="log-entry"><div class="log-time">${ts}</div><div class="log-body"><span class="log-body-main">${msg}</span></div></div>`;
-        }).join('');
-        logBox.innerHTML = logHtml || '<div class="log-entry"><div class="log-body">-</div></div>';
-        if (autoScroll) {
-          logBox.scrollTop = logBox.scrollHeight;
+        const rows = Array.isArray(logs) ? logs : [];
+        if (rows.length > 0) {
+          const now = Date.now();
+          const win = rows.filter(l => now - Number(l.time || 0) <= 60000);
+          const total1m = win.length;
+          const err1m = win.filter(l => Number(l.status) >= 500).length;
+          const rps = total1m / 60;
+          const errRate = total1m > 0 ? (err1m / total1m) * 100 : 0;
+          document.getElementById('v_rps').textContent = `${rps.toFixed(2)} req/s`;
+          document.getElementById('v_err_rate').textContent = `请求数: ${total1m} / min · 错误率: ${errRate.toFixed(1)}%`;
+        } else {
+          document.getElementById('v_rps').textContent = '0.00 req/s';
+          document.getElementById('v_err_rate').textContent = '请求数: 0 / min · 错误率: 0.0%';
         }
+        renderLogs(rows);
+        document.getElementById('v_refreshed').textContent = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+        setConnection('ok', '连接正常');
       } catch (e) {
         console.error('loadDashboard error', e);
+        setConnection('danger', e.message || '连接失败');
+        metricAlert.style.display = 'block';
+        metricAlert.textContent = `${e.message || '连接失败'}，5 秒后自动重试。`;
       }
     }
 
     btn.addEventListener('click', login);
     keyInput.addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+    btnRefresh.addEventListener('click', () => loadDashboard({ force: true }));
+    btnTheme.addEventListener('click', () => {
+      const current = document.documentElement.dataset.theme || THEMES[0][0];
+      const idx = THEMES.findIndex(([key]) => key === current);
+      setTheme(THEMES[(idx + 1) % THEMES.length][0]);
+    });
+    btnPause.addEventListener('click', () => {
+      refreshPaused = !refreshPaused;
+      btnPause.textContent = refreshPaused ? '刷新：停' : '刷新：开';
+      btnPause.classList.toggle('off', refreshPaused);
+      setConnection(refreshPaused ? 'warn' : 'ok', refreshPaused ? '已暂停刷新' : '连接正常');
+    });
     btnScroll.addEventListener('click', () => {
       autoScroll = !autoScroll;
-      if (autoScroll) {
-        btnScroll.textContent = '自动滚动：开';
-        btnScroll.classList.remove('off');
-      } else {
-        btnScroll.textContent = '自动滚动：关';
-        btnScroll.classList.add('off');
-      }
+      btnScroll.textContent = autoScroll ? '滚动：开' : '滚动：关';
+      btnScroll.classList.toggle('off', !autoScroll);
     });
-
+    for (const button of logFilterButtons) {
+      button.addEventListener('click', () => {
+        currentLogFilter = button.dataset.filter || 'all';
+        renderLogs(latestLogRows);
+      });
+    }
+    document.getElementById('btn_clearlogs').addEventListener('click', () => {
+      latestLogRows = [];
+      renderLogs([]);
+    });
     document.getElementById('btn_changebg').addEventListener('click', async () => {
       try {
-        const resp = await fetch('/admin/random-bg');
-        const data = await resp.json();
+        const data = await fetchJSON('/admin/random-bg');
         if (data.backdrop_path) {
+          setBackground(`/t/p/original${data.backdrop_path}`);
           localStorage.setItem('tmdb_bg', JSON.stringify({ path: data.backdrop_path, ts: Date.now() }));
-          location.reload();
+          bgLoaded = true;
         }
       } catch (e) {
         console.error('切换背景失败', e);
+        setConnection('danger', '背景切换失败');
       }
     });
 
-    document.getElementById('btn_clear_cache').addEventListener('click', async () => {
-      const btn = document.getElementById('btn_clear_cache');
-      const original = btn.textContent;
-      if (!confirm('确定清空全部缓存（API + 内存图片 + 磁盘图片）？')) return;
-      btn.disabled = true;
-      btn.textContent = '清理中...';
+    btnLogout.addEventListener('click', async () => {
       try {
-        const resp = await fetch('/admin/clear-cache?type=all');
-        const data = await resp.json();
-        if (data.ok) {
-          btn.textContent = `已清 ${data.api_cleared || 0}/${data.mem_cleared || 0}/${data.disk_cleared || 0}`;
-          setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 2500);
-        } else {
-          btn.textContent = '清理失败';
-          setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 2000);
-        }
+        await fetch('/admin/logout', { method: 'POST' });
       } catch (e) {
-        console.error('清空缓存失败', e);
-        btn.textContent = '清理失败';
-        setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 2000);
+        console.error('退出登录失败', e);
       }
-    });
-
-    btnLogout.addEventListener('click', () => {
-      clearCookie('admin_key');
       if (refreshTimer) clearInterval(refreshTimer);
       autoScroll = true;
+      refreshPaused = false;
       bgLoaded = false;
-      btnScroll.textContent = '自动滚动：开';
+      currentLogFilter = 'all';
+      latestLogRows = [];
+      renderLogs([]);
+      healthTick = 0;
+      btnPause.textContent = '刷新：开';
+      btnPause.classList.remove('off');
+      btnScroll.textContent = '滚动：开';
       btnScroll.classList.remove('off');
+      bootBox.style.display = 'none';
       content.style.display = 'none';
       loginBox.style.display = 'block';
       msg.textContent = '';
       keyInput.value = '';
-      document.body.style.backgroundImage = "url('https://image.tmdb.org/t/p/original/1RgPyOhN4DRs225BGTlHJqCudII.jpg')";
+      btn.disabled = false;
+      setBackground(DEFAULT_BG);
     });
 
-    // 页面加载时，如果已有 admin_key Cookie，则直接尝试进入面板
-    (function init() {
-      const existingKey = getCookie('admin_key');
-      if (existingKey) {
+    (async function init() {
+      setTheme(localStorage.getItem('tmdb_theme') || 'aurora');
+      try {
+        const resp = await fetch('/admin/status');
+        bootBox.style.display = 'none';
+        if (!resp.ok) {
+          loginBox.style.display = 'block';
+          return;
+        }
         loginBox.style.display = 'none';
         content.style.display = 'block';
-        loadDashboard();
+        loadDashboard({ force: true });
         if (refreshTimer) clearInterval(refreshTimer);
-        refreshTimer = setInterval(loadDashboard, 5000);
+        refreshTimer = setInterval(() => loadDashboard(), 5000);
+      } catch {
+        bootBox.style.display = 'none';
+        loginBox.style.display = 'block';
       }
     })();
   </script>
