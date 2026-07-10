@@ -1,4 +1,5 @@
 const assert = require('assert');
+const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
@@ -7,7 +8,26 @@ process.env.IMAGE_DISK_CACHE_ENABLED = 'false';
 process.env.TMDB_API_KEY = 'server-key';
 process.env.ADMIN_API_KEY = 'admin-secret';
 
-const { _internals } = require('./server');
+const { server, shutdown, _internals } = require('./server');
+
+function requestAdmin(port, method, pathname, headers = {}, body = '') {
+  return new Promise((resolve, reject) => {
+    const req = http.request({
+      host: '127.0.0.1',
+      port,
+      method,
+      path: pathname,
+      headers
+    }, res => {
+      const chunks = [];
+      res.on('data', chunk => chunks.push(chunk));
+      res.on('end', () => resolve({ status: res.statusCode, body: Buffer.concat(chunks).toString('utf8') }));
+    });
+    req.on('error', reject);
+    if (body) req.write(body);
+    req.end();
+  });
+}
 
 assert.deepStrictEqual(_internals.parseQuery('/3/search/movie?query=a%3Db&include_adult=false'), {
   query: 'a=b',
@@ -97,6 +117,45 @@ assert.strictEqual(_internals.shouldRecordRequest(realIpReq, '/3/movie/1', 'api'
   assert.ok(files.every(file => typeof file.mtimeMs === 'number' && typeof file.atimeMs === 'number'));
 
   await fs.promises.rm(diskTestDir, { recursive: true, force: true });
+
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const port = server.address().port;
+  const origin = `http://127.0.0.1:${port}`;
+
+  try {
+    _internals.cacheSet('cache-clear-get-rejection', { ok: true }, 60);
+    const getClear = await requestAdmin(port, 'GET', '/admin/clear-cache?type=api', {
+      'X-Admin-Key': 'admin-secret'
+    });
+    assert.strictEqual(getClear.status, 405);
+    assert.deepStrictEqual(_internals.cacheGet('cache-clear-get-rejection'), { ok: true });
+
+    const crossSiteClear = await requestAdmin(port, 'POST', '/admin/clear-cache?type=api', {
+      'X-Admin-Key': 'admin-secret',
+      Origin: 'https://attacker.example',
+      'Sec-Fetch-Site': 'cross-site'
+    });
+    assert.strictEqual(crossSiteClear.status, 403);
+    assert.deepStrictEqual(_internals.cacheGet('cache-clear-get-rejection'), { ok: true });
+
+    const sameOriginClear = await requestAdmin(port, 'POST', '/admin/clear-cache?type=api', {
+      'X-Admin-Key': 'admin-secret',
+      Origin: origin,
+      'Sec-Fetch-Site': 'same-origin'
+    });
+    assert.strictEqual(sameOriginClear.status, 200);
+    assert.strictEqual(_internals.cacheGet('cache-clear-get-rejection'), null);
+
+    const oversizedAuthBody = JSON.stringify({ admin_key: 'x'.repeat(16 * 1024) });
+    const oversizedAuth = await requestAdmin(port, 'POST', '/admin/auth', {
+      'Content-Type': 'application/json'
+    }, oversizedAuthBody);
+    assert.strictEqual(oversizedAuth.status, 413);
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+    shutdown();
+  }
+
   console.log('All tests passed');
 })().catch(err => {
   console.error(err);

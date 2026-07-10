@@ -24,6 +24,7 @@ const IMAGE_RETRY_COUNT = Number(process.env.IMAGE_RETRY_COUNT) || 1;
 const RETRY_DELAY_MS = Number(process.env.RETRY_DELAY_MS) || 150;
 const DISK_CACHE_SIZE_TTL_MS = Number(process.env.DISK_CACHE_SIZE_TTL_MS) || 30000;
 const DISK_CACHE_CLEANUP_INTERVAL_MS = Number(process.env.DISK_CACHE_CLEANUP_INTERVAL_MS) || 600000;
+const ADMIN_AUTH_BODY_MAX_BYTES = 8 * 1024;
 
 // ============== Keep-Alive Agent ==============
 const httpsAgent = new https.Agent({
@@ -255,6 +256,58 @@ function cookieOptions(maxAgeSeconds) {
   if (maxAgeSeconds !== undefined) parts.push(`Max-Age=${maxAgeSeconds}`);
   if ((process.env.COOKIE_SECURE || '').toLowerCase() === 'true') parts.push('Secure');
   return parts.join('; ');
+}
+
+function isSameOriginAdminMutation(req) {
+  const fetchSite = String(req.headers['sec-fetch-site'] || '').toLowerCase();
+  if (fetchSite === 'cross-site' || fetchSite === 'same-site') return false;
+
+  const origin = req.headers.origin;
+  if (!origin) return true;
+
+  try {
+    const originUrl = new URL(origin);
+    return (originUrl.protocol === 'http:' || originUrl.protocol === 'https:')
+      && originUrl.host === req.headers.host;
+  } catch {
+    return false;
+  }
+}
+
+function readRequestBody(req, maxBytes) {
+  const contentLength = Number(req.headers['content-length']);
+  if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+    req.resume();
+    const error = new Error('Request body too large');
+    error.code = 'BODY_TOO_LARGE';
+    return Promise.reject(error);
+  }
+
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let bytes = 0;
+    let overflow = false;
+
+    req.on('data', chunk => {
+      if (overflow) return;
+      bytes += chunk.length;
+      if (bytes > maxBytes) {
+        overflow = true;
+        req.resume();
+        const error = new Error('Request body too large');
+        error.code = 'BODY_TOO_LARGE';
+        reject(error);
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => {
+      if (!overflow) resolve(Buffer.concat(chunks).toString('utf8'));
+    });
+    req.on('error', error => {
+      if (!overflow) reject(error);
+    });
+  });
 }
 
 async function ensureDir(dir) {
@@ -929,7 +982,14 @@ async function handleAdminLogs(req, res, query) {
 
 async function handleAdminAuth(req, res) {
   let body = '';
-  for await (const chunk of req) body += chunk;
+  try {
+    body = await readRequestBody(req, ADMIN_AUTH_BODY_MAX_BYTES);
+  } catch (error) {
+    if (error.code === 'BODY_TOO_LARGE') {
+      return sendJSONCompressed(req, res, 413, { ok: false, message: 'Request body too large' });
+    }
+    throw error;
+  }
 
   let data = {};
   try { data = JSON.parse(body); } catch {}
@@ -1019,6 +1079,12 @@ async function handleAdminRandomBg(req, res, query) {
 
 // ============== 清除缓存管理端点 ==============
 async function handleAdminClearCache(req, res, query) {
+  if (req.method !== 'POST') {
+    return sendJSONCompressed(req, res, 405, { error: 'Method not allowed' }, { Allow: 'POST' });
+  }
+  if (!isSameOriginAdminMutation(req)) {
+    return sendJSONCompressed(req, res, 403, { error: 'Cross-site admin mutation denied' });
+  }
   if (!checkAdminKey(req, query)) return send404(res);
 
   const type = query.type || 'all';
