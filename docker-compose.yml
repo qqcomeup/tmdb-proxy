@@ -1,25 +1,40 @@
 services:
   tmdb-proxy:
-    user: "0:0"
     image: ghcr.io/qqcomeup/tmdb-proxy:latest
+    user: "65532:65532"
     container_name: tmdb-proxy
+    mem_limit: ${CONTAINER_MEM_LIMIT:-512m}
+    mem_reservation: ${CONTAINER_MEM_RESERVATION:-256m}
+    pids_limit: 256
     ports:
-      - "${BIND_ADDRESS:-127.0.0.1}:${PORT:-54321}:${PORT:-54321}"
+      - "${BIND_ADDRESS:-127.0.0.1}:${PORT:-54321}:54321"
     environment:
       - NODE_ENV=production
-      - PORT=${PORT:-54321}
+      - PORT=54321
       - TMDB_API_KEY=${TMDB_API_KEY:?TMDB_API_KEY is required}
-      - IMAGE_DISK_CACHE_ENABLED=true
-      - IMAGE_DISK_CACHE_DIR=/tmp/tmdb-cache
-      - IMAGE_DISK_CACHE_MAX_GB=2
-      - IMAGE_DISK_CACHE_TRIGGER_GB=1.7
       - ADMIN_API_KEY=${ADMIN_API_KEY:?ADMIN_API_KEY is required}
+      - COOKIE_SECURE=${COOKIE_SECURE:-true}
+      - IMAGE_DISK_CACHE_ENABLED=${IMAGE_DISK_CACHE_ENABLED:-true}
+      - IMAGE_DISK_CACHE_DIR=/tmp/tmdb-cache
+      - IMAGE_DISK_CACHE_MAX_GB=${IMAGE_DISK_CACHE_MAX_GB:-1}
+      - IMAGE_MEM_CACHE_MAX_MB=${IMAGE_MEM_CACHE_MAX_MB:-100}
+      - IMAGE_CACHE_TTL=${IMAGE_CACHE_TTL:-604800}
+      - API_CACHE_TTL=${API_CACHE_TTL:-600}
+      - API_CACHE_MAX_ITEMS=${API_CACHE_MAX_ITEMS:-2000}
+      - FETCH_TIMEOUT_MS=${FETCH_TIMEOUT_MS:-15000}
+      - API_RETRY_COUNT=${API_RETRY_COUNT:-2}
+      - IMAGE_RETRY_COUNT=${IMAGE_RETRY_COUNT:-1}
+      - RETRY_DELAY_MS=${RETRY_DELAY_MS:-150}
+      - DISK_CACHE_CLEANUP_INTERVAL_MS=${DISK_CACHE_CLEANUP_INTERVAL_MS:-600000}
     restart: unless-stopped
     volumes:
-      - ./cache:/tmp/tmdb-cache
+      - tmdb-cache:/tmp/tmdb-cache
     healthcheck:
-      test: ["CMD", "/nodejs/bin/node", "-e", "require('http').get('http://localhost:${PORT:-54321}/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      test: ["CMD", "/nodejs/bin/node", "-e", "require('http').get('http://localhost:54321/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
+
+volumes:
+  tmdb-cache:

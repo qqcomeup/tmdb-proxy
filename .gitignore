@@ -8,6 +8,8 @@ yarn-debug.log*
 yarn-error.log*
 
 cache/
+cache-test/
+cache-test-files/
 logs/
 *.log
 *.pid
