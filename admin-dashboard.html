@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TMDB 代理监控面板</title>
+  <script>
+    // 立即设置背景，避免闪烁
+    (function(){
+      try {
+        const stored = localStorage.getItem('tmdb_bg');
+        if (stored) {
+          const { path } = JSON.parse(stored);
+          if (path) document.write('<style>body{background-image:url("/t/p/original'+path+'")!important}</style>');
+        }
+      } catch {}
+    })();
+  </script>
+  <style>
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background:url('https://image.tmdb.org/t/p/original/1RgPyOhN4DRs225BGTlHJqCudII.jpg') center/cover fixed no-repeat;color:#e6e6e6;margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;transition:background-image .5s ease-in-out}
+    header{display:none}
+    main{width:100%;max-width:960px;padding:0;background:transparent;border:0;box-shadow:none;backdrop-filter:none;box-sizing:border-box}
+    h1{font-size:18px;margin:0}
+    section{margin-top:16px}
+    grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
+    card{display:block;background:rgba(14,19,30,.88);border:1px solid rgba(255,255,255,.06);border-radius:18px;padding:16px;box-shadow:0 10px 25px rgba(0,0,0,.55)}
+    grid > card{height:150px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;text-align:center}
+    .stat-icon{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600;color:#fff;margin-bottom:6px}
+    .stat-purple{background:linear-gradient(135deg,rgba(140,124,255,.25),rgba(42,60,107,.35));}
+    .stat-blue{background:linear-gradient(135deg,rgba(72,149,255,.25),rgba(31,54,92,.35));}
+    .stat-green{background:linear-gradient(135deg,rgba(45,212,191,.25),rgba(17,71,69,.35));}
+    .stat-orange{background:linear-gradient(135deg,rgba(248,180,80,.25),rgba(83,55,19,.35));}
+    .stat-pink{background:linear-gradient(135deg,rgba(244,114,182,.25),rgba(90,25,55,.35));}
+    .stat-amber{background:linear-gradient(135deg,rgba(251,191,36,.25),rgba(92,60,18,.35));}
+    label{display:block;color:#cbd5f5;font-size:12px;font-weight:600;margin-bottom:4px}
+    .stat-sub{font-size:12px;color:#a5b4fc;margin-top:-6px;margin-bottom:4px}
+    value{display:block;font-size:22px;font-weight:700;text-align:center;margin-top:4px;color:#f9fafb}
+    pre{background:#05080e;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:14px;overflow:auto;max-height:32vh;font-size:12px;line-height:1.6;color:#e5e7eb}
+    .stat-list{width:100%;display:flex;flex-direction:column;gap:6px;font-size:18px;color:#f9fafb;margin-top:6px;align-items:center;font-weight:650}
+    .status-row{width:100%;text-align:center}
+    a{color:#61dafb;text-decoration:none}
+    .login{max-width:360px;margin:0 auto 10px;padding:22px 22px 18px;background:rgba(6,8,12,.9);border:1px solid rgba(148,163,184,.35);border-radius:18px;box-shadow:0 20px 40px rgba(0,0,0,.7)}
+    .welcome{margin-bottom:18px;text-align:center}
+    .welcome h2{font-size:28px;font-weight:700;color:#f9fafb;margin-bottom:6px}
+    .welcome p{font-size:14px;color:#cbd5f5;margin:0}
+    .login-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+    .login-logo{display:flex;align-items:center;gap:10px}
+    .login-logo-mark{width:26px;height:26px;border-radius:8px;background:radial-gradient(circle at 30% 30%,#a855f7,#4f46e5);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:16px}
+    .login-title{font-size:18px;font-weight:650;color:#f9fafb}
+    .login-sub{font-size:11px;color:#a5b4fc}
+    .login-field{margin-bottom:14px}
+    .login label{display:block;font-size:12px;color:#cbd5f5;font-weight:500;margin-bottom:6px}
+    .login input{width:100%;max-width:260px;padding:11px 14px;border-radius:10px;border:1px solid #1f2933;background:#020617;color:#e5e7eb;outline:none;transition:border-color .15s,box-shadow .15s,background .15s}
+    .login input:focus{border-color:#8b5cf6;box-shadow:0 0 0 1px rgba(139,92,246,.55);background:#020617}
+    .login-extra{display:flex;align-items:center;gap:6px;font-size:12px;color:#9ca3af;margin-top:6px}
+    .login-extra input{width:auto;margin:0}
+    .login button{width:100%;padding:11px;border-radius:999px;border:0;background:linear-gradient(90deg,#8b5cf6,#6366f1);color:#fff;font-weight:600;cursor:pointer;margin-top:14px;font-size:14px;display:flex;align-items:center;justify-content:center;gap:6px}
+    .login button:hover{background:linear-gradient(90deg,#a855f7,#4f46e5)}
+    .login button:disabled{opacity:.6;cursor:not-allowed}
+    .badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#1f2933;color:#9caec8;font-size:11px;margin-left:8px}
+    .meter{position:relative;width:100%;height:8px;border-radius:999px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:10px}
+    .meter-fill{position:absolute;left:0;top:0;height:100%;border-radius:inherit;background:linear-gradient(90deg,#35d38a,#42b4ff);width:0%;transition:width .35s ease-out}
+    #v_status{height:70px;max-height:70px;overflow:auto}
+    #v_logs{height:420px;max-height:420px;overflow:auto}
+    .log-entry{display:flex;align-items:flex-start;font-size:12px;line-height:1.5;margin-bottom:6px}
+    .log-time{flex:0 0 120px;padding:3px 8px;border-radius:999px;background:#e5f0ff;color:#2563eb;text-align:center;margin-right:8px;white-space:nowrap}
+    .log-body{flex:1;padding:3px 8px;border-radius:6px;background:rgba(15,23,42,.85);color:#e5e7eb;border:1px solid rgba(148,163,184,.35)}
+    .log-body-main{margin-left:8px}
+    .chip-btn{font-size:11px;padding:4px 10px;border-radius:999px;border:0;cursor:pointer;background:rgba(96,165,250,.16);color:#cbd5ff;transition:background .2s,transform .1s}
+    .chip-btn:hover{background:rgba(96,165,250,.28);transform:translateY(-1px)}
+    .chip-btn.off{background:rgba(148,163,184,.18);color:#e5e7eb}
+  </style>
+</head>
+<body>
+  <header><h1>TMDB 代理监控面板</h1></header>
+  <main>
+    <div id="login" class="login">
+      <div class="login-header">
+        <div class="login-logo">
+          <div class="login-logo-mark">T</div>
+          <div class="login-title">TMDB 管理登录</div>
+        </div>
+        <div class="login-sub">CN · 简体中文</div>
+      </div>
+      <div class="login-field">
+        <label>管理密钥</label>
+        <input id="key" type="password" placeholder="请输入 ADMIN_API_KEY" />
+      </div>
+      <div class="login-extra">
+        <input id="keep" type="checkbox" checked disabled />
+        <span>保持登录（基于 Cookie）</span>
+      </div>
+      <button id="btn">
+        <span>⮕</span>
+        <span>登录</span>
+      </button>
+      <div id="msg" class="row"></div>
+    </div>
+    <section id="content" style="display:none">
+      <div class="welcome">
+        <h2>欢迎使用 TMDB 管理面板</h2>
+        <p>实时掌握代理运行状态，缓存命中与日志一目了然</p>
+        <p style="margin-top:8px;font-size:12px;color:#39ff14;">版本: <span id="v_version">-</span> | 运行时间: <span id="v_uptime">-</span></p>
+      </div>
+      <grid>
+        <card>
+          <div class="stat-icon" style="background:linear-gradient(135deg,#7c3aed,#6d28d9);">📊</div>
+          <label>总请求数</label>
+          <div class="stat-sub">累计通过代理的全部请求</div>
+          <value id="v_total">-</value>
+        </card>
+        <card>
+          <div class="stat-icon" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);">🖼️</div>
+          <label>图片请求</label>
+          <div class="stat-sub">全部图片加载次数</div>
+          <value id="v_img">-</value>
+        </card>
+        <card>
+          <div class="stat-icon" style="background:linear-gradient(135deg,#f97316,#ea580c);">🎯</div>
+          <label>图片缓存 内存/磁盘/未命中</label>
+          <div class="stat-sub">实时缓存命中情况</div>
+          <value id="v_img_cache">-</value>
+        </card>
+        <card>
+          <div class="stat-icon" style="background:linear-gradient(135deg,#0ea5e9,#0284c7);">🔗</div>
+          <label>API 请求</label>
+          <div class="stat-sub">所有 /3/* 接口调用</div>
+          <value id="v_api">-</value>
+        </card>
+        <card>
+          <div class="stat-icon" style="background:linear-gradient(135deg,#22c55e,#16a34a);">⚡</div>
+          <label>API 缓存命中 / 未命中</label>
+          <div class="stat-sub">API 缓存命中情况</div>
+          <value id="v_api_cache">-</value>
+        </card>
+        <card>
+          <div class="stat-icon" style="background:linear-gradient(135deg,#facc15,#eab308);">💾</div>
+          <label>磁盘缓存占用</label>
+          <value id="v_disk_usage">-</value>
+          <div class="meter"><div id="bar_disk" class="meter-fill"></div></div>
+          <div style="font-size:12px;color:#bac1d4;margin-top:6px" id="v_disk_path"></div>
+        </card>
+        <card>
+          <div class="stat-icon" style="background:linear-gradient(135deg,#ec4899,#db2777);">🧠</div>
+          <label>内存缓存占用</label>
+          <value id="v_mem_usage">-</value>
+          <div class="meter"><div id="bar_mem" class="meter-fill"></div></div>
+          <div style="font-size:12px;color:#bac1d4;margin-top:6px" id="v_mem_count"></div>
+        </card>
+        <card>
+          <div class="stat-icon" style="background:linear-gradient(135deg,#a855f7,#9333ea);">📨</div>
+          <label>状态码统计</label>
+          <div class="stat-sub">最近窗口的状态分布</div>
+          <div id="v_status" class="stat-list"></div>
+        </card>
+        <card>
+          <div class="stat-icon" style="background:linear-gradient(135deg,#64748b,#475569);">⚙️</div>
+          <label>面板控制</label>
+          <div style="display:flex;gap:8px;margin-top:auto;width:100%;flex-wrap:wrap">
+            <button id="btn_changebg" class="chip-btn" style="flex:1;min-width:88px">切换背景</button>
+            <button id="btn_clear_cache" class="chip-btn" style="flex:1;min-width:88px">清空缓存</button>
+            <button id="btn_logout" class="chip-btn" style="flex:1;min-width:88px">退出登录</button>
+          </div>
+        </card>
+      </grid>
+      <section>
+        <card>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+            <label style="margin-bottom:0">最近访问日志</label>
+            <button id="btn_scroll" class="chip-btn">自动滚动：开</button>
+          </div>
+          <pre id="v_logs"></pre>
+        </card>
+      </section>
+    </section>
+  </main>
+  <script>
+    const keyInput = document.getElementById('key');
+    const btn = document.getElementById('btn');
+    const msg = document.getElementById('msg');
+    const loginBox = document.getElementById('login');
+    const content = document.getElementById('content');
+    const btnScroll = document.getElementById('btn_scroll');
+    const btnLogout = document.getElementById('btn_logout');
+    let refreshTimer = null;
+    let autoScroll = true;
+
+    function getCookie(name) {
+      const value = document.cookie.split('; ').find(row => row.startsWith(name + '='));
+      return value ? decodeURIComponent(value.split('=')[1]) : '';
+    }
+
+    function clearCookie(name) {
+      document.cookie = name + '=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+    }
+
+    async function login() {
+      const key = keyInput.value.trim();
+      if (!key) {
+        msg.textContent = '请输入管理密钥';
+        return;
+      }
+      btn.disabled = true;
+      msg.textContent = '登录中...';
+      try {
+        const resp = await fetch('/admin/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ admin_key: key })
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok || !data.ok) {
+          msg.textContent = '密钥错误或未授权';
+          btn.disabled = false;
+          return;
+        }
+        // set cookie for subsequent admin requests
+        document.cookie = 'admin_key=' + encodeURIComponent(key) + '; Path=/; SameSite=Lax';
+        msg.textContent = '登录成功';
+        loginBox.style.display = 'none';
+        content.style.display = 'block';
+        loadDashboard();
+        if (refreshTimer) clearInterval(refreshTimer);
+        refreshTimer = setInterval(loadDashboard, 5000);
+      } catch (e) {
+        console.error(e);
+        msg.textContent = '登录失败，请稍后重试';
+        btn.disabled = false;
+      }
+    }
+
+    let bgLoaded = false;
+
+    async function loadRandomBg(force = false) {
+      if (bgLoaded && !force) return;
+      
+      // 检查本地存储，1天换1次（除非强制刷新）
+      if (!force) {
+        const stored = localStorage.getItem('tmdb_bg');
+        if (stored) {
+          try {
+            const { path, ts } = JSON.parse(stored);
+            if (path && Date.now() - ts < 86400000) { // 24小时
+              document.body.style.backgroundImage = `url('/t/p/original${path}')`;
+              bgLoaded = true;
+              return;
+            }
+          } catch {}
+        }
+      }
+      
+      try {
+        const resp = await fetch('/admin/random-bg');
+        const data = await resp.json();
+        if (data.backdrop_path) {
+          document.body.style.backgroundImage = `url('/t/p/original${data.backdrop_path}')`;
+          localStorage.setItem('tmdb_bg', JSON.stringify({ path: data.backdrop_path, ts: Date.now() }));
+          bgLoaded = true;
+        }
+      } catch (e) {
+        console.error('loadRandomBg error', e);
+      }
+    }
+
+    // 右键切换壁纸 - 已移除
+
+    async function loadDashboard() {
+      try {
+        loadRandomBg();
+        const m = await fetch('/admin/metrics').then(r => r.json());
+        const logs = await fetch('/admin/logs?limit=200').then(r => r.json());
+        const health = await fetch('/health').then(r => r.json()).catch(() => ({}));
+
+        // 版本和运行时间
+        if (health.version) {
+          document.getElementById('v_version').textContent = health.version;
+        }
+        if (health.uptime) {
+          const h = Math.floor(health.uptime / 3600);
+          const m2 = Math.floor((health.uptime % 3600) / 60);
+          document.getElementById('v_uptime').textContent = `${h}小时${m2}分钟`;
+        }
+
+        document.getElementById('v_total').textContent = m.metrics.total;
+        document.getElementById('v_img').textContent = m.metrics.image.total;
+        document.getElementById('v_api').textContent = m.metrics.api.total;
+        document.getElementById('v_img_cache').textContent = `${m.metrics.image.mem_hit}/${m.metrics.image.disk_hit}/${m.metrics.image.miss}`;
+        document.getElementById('v_api_cache').textContent = `${m.metrics.api.hit}/${m.metrics.api.miss}`;
+
+        // 磁盘缓存
+        if (m.disk_cache && m.disk_cache.enabled) {
+          const usedGB = m.disk_cache.bytes / (1024 * 1024 * 1024);
+          const maxGB = m.disk_cache.max_bytes / (1024 * 1024 * 1024);
+          const diskPct = maxGB > 0 ? Math.min(100, (usedGB / maxGB) * 100) : 0;
+          document.getElementById('v_disk_usage').textContent = `${usedGB.toFixed(2)} GB / ${maxGB.toFixed(2)} GB`;
+          document.getElementById('v_disk_path').textContent = `目录: ${m.disk_cache.dir}`;
+          document.getElementById('bar_disk').style.width = diskPct + '%';
+        } else {
+          document.getElementById('v_disk_usage').textContent = '已关闭';
+          document.getElementById('v_disk_path').textContent = '';
+          document.getElementById('bar_disk').style.width = '0%';
+        }
+
+        // 内存缓存
+        if (m.mem_cache) {
+          const usedMB = m.mem_cache.bytes / (1024 * 1024);
+          const maxMB = m.mem_cache.max_bytes / (1024 * 1024);
+          const memPct = maxMB > 0 ? Math.min(100, (usedMB / maxMB) * 100) : 0;
+          document.getElementById('v_mem_usage').textContent = `${usedMB.toFixed(1)} MB / ${maxMB.toFixed(0)} MB`;
+          document.getElementById('v_mem_count').textContent = `缓存图片: ${m.mem_cache.size} 张`;
+          document.getElementById('bar_mem').style.width = memPct + '%';
+        } else {
+          document.getElementById('v_mem_usage').textContent = '-';
+          document.getElementById('v_mem_count').textContent = '';
+          document.getElementById('bar_mem').style.width = '0%';
+        }
+
+        const statusList = document.getElementById('v_status');
+        const statusRows = Object.entries(m.metrics.byStatus)
+          .map(([code, count]) => `<div class="status-row"><span>${code}</span> / <span>${count}</span></div>`)
+          .join('');
+        statusList.innerHTML = statusRows || '<div class="status-row">暂无数据</div>';
+
+        const logBox = document.getElementById('v_logs');
+        const logHtml = logs.map(l => {
+          const ts = new Date(l.time).toLocaleString('zh-CN', {
+            timeZone: 'Asia/Shanghai',
+            hour12: false
+          });
+          const msg = `${l.method} ${l.path}  状态:${l.status}  耗时:${l.durationMs}ms  IP:${l.ip}  缓存:${l.cache || '-'}`;
+          return `<div class="log-entry"><div class="log-time">${ts}</div><div class="log-body"><span class="log-body-main">${msg}</span></div></div>`;
+        }).join('');
+        logBox.innerHTML = logHtml || '<div class="log-entry"><div class="log-body">-</div></div>';
+        if (autoScroll) {
+          logBox.scrollTop = logBox.scrollHeight;
+        }
+      } catch (e) {
+        console.error('loadDashboard error', e);
+      }
+    }
+
+    btn.addEventListener('click', login);
+    keyInput.addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+    btnScroll.addEventListener('click', () => {
+      autoScroll = !autoScroll;
+      if (autoScroll) {
+        btnScroll.textContent = '自动滚动：开';
+        btnScroll.classList.remove('off');
+      } else {
+        btnScroll.textContent = '自动滚动：关';
+        btnScroll.classList.add('off');
+      }
+    });
+
+    document.getElementById('btn_changebg').addEventListener('click', async () => {
+      try {
+        const resp = await fetch('/admin/random-bg');
+        const data = await resp.json();
+        if (data.backdrop_path) {
+          localStorage.setItem('tmdb_bg', JSON.stringify({ path: data.backdrop_path, ts: Date.now() }));
+          location.reload();
+        }
+      } catch (e) {
+        console.error('切换背景失败', e);
+      }
+    });
+
+    document.getElementById('btn_clear_cache').addEventListener('click', async () => {
+      const btn = document.getElementById('btn_clear_cache');
+      const original = btn.textContent;
+      if (!confirm('确定清空全部缓存（API + 内存图片 + 磁盘图片）？')) return;
+      btn.disabled = true;
+      btn.textContent = '清理中...';
+      try {
+        const resp = await fetch('/admin/clear-cache?type=all');
+        const data = await resp.json();
+        if (data.ok) {
+          btn.textContent = `已清 ${data.api_cleared || 0}/${data.mem_cleared || 0}/${data.disk_cleared || 0}`;
+          setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 2500);
+        } else {
+          btn.textContent = '清理失败';
+          setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 2000);
+        }
+      } catch (e) {
+        console.error('清空缓存失败', e);
+        btn.textContent = '清理失败';
+        setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 2000);
+      }
+    });
+
+    btnLogout.addEventListener('click', () => {
+      clearCookie('admin_key');
+      if (refreshTimer) clearInterval(refreshTimer);
+      autoScroll = true;
+      bgLoaded = false;
+      btnScroll.textContent = '自动滚动：开';
+      btnScroll.classList.remove('off');
+      content.style.display = 'none';
+      loginBox.style.display = 'block';
+      msg.textContent = '';
+      keyInput.value = '';
+      document.body.style.backgroundImage = "url('https://image.tmdb.org/t/p/original/1RgPyOhN4DRs225BGTlHJqCudII.jpg')";
+    });
+
+    // 页面加载时，如果已有 admin_key Cookie，则直接尝试进入面板
+    (function init() {
+      const existingKey = getCookie('admin_key');
+      if (existingKey) {
+        loginBox.style.display = 'none';
+        content.style.display = 'block';
+        loadDashboard();
+        if (refreshTimer) clearInterval(refreshTimer);
+        refreshTimer = setInterval(loadDashboard, 5000);
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+services:
+  tmdb-proxy:
+    user: "0:0"
+    build: .
+    image: tmdb-proxy
+    container_name: tmdb-proxy
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${PORT:-54321}:${PORT:-54321}"
+    environment:
+      - NODE_ENV=production
+      - PORT=${PORT:-54321}
+      - TMDB_API_KEY=${TMDB_API_KEY:?TMDB_API_KEY is required}
+      - IMAGE_DISK_CACHE_ENABLED=true
+      - IMAGE_DISK_CACHE_DIR=/tmp/tmdb-cache
+      - IMAGE_DISK_CACHE_MAX_GB=2
+      - IMAGE_DISK_CACHE_TRIGGER_GB=1.7
+      - ADMIN_API_KEY=${ADMIN_API_KEY:?ADMIN_API_KEY is required}
+    restart: unless-stopped
+    volumes:
+      - ./cache:/tmp/tmdb-cache
+    healthcheck:
+      test: ["CMD", "/nodejs/bin/node", "-e", "require('http').get('http://localhost:${PORT:-54321}/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
