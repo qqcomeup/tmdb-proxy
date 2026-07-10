@@ -1,8 +1,7 @@
 services:
   tmdb-proxy:
     user: "0:0"
-    build: .
-    image: tmdb-proxy
+    image: ghcr.io/qqcomeup/tmdb-proxy:latest
     container_name: tmdb-proxy
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:${PORT:-54321}:${PORT:-54321}"
@@ -24,4 +23,3 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
-
