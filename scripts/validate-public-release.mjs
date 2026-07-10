@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(new URL('..', import.meta.url).pathname);
+const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 
 function read(relativePath) {
   return fs.readFileSync(path.join(root, relativePath), 'utf8');
@@ -84,11 +85,47 @@ check('server redacts request query secrets from logs', () => {
   if (!server.includes('sanitizeRequestUrl(req.url)')) {
     throw new Error('request logging does not sanitize req.url');
   }
-  if (!server.includes('api_key|key|admin_key')) {
-    throw new Error('query secret keys are not covered by redaction');
+  for (const required of ["'api_key'", "'key'", "'admin_key'", 'decodeURIComponent(rawName']) {
+    if (!server.includes(required)) {
+      throw new Error(`query secret redaction missing: ${required}`);
+    }
   }
 });
 
+check('admin endpoints avoid wildcard CORS and throttle failed auth', () => {
+  const server = read('server.js');
+  for (const required of [
+    'sendAdminJSONCompressed',
+    'cors: false',
+    'isAdminAuthRateLimited(req)',
+    'recordFailedAdminAuth(req)',
+    "'Retry-After': '60'",
+  ]) {
+    if (!server.includes(required)) {
+      throw new Error(`admin hardening missing: ${required}`);
+    }
+  }
+  if (!server.includes("pathname.startsWith('/admin/')")) {
+    throw new Error('admin OPTIONS handling is not route-specific');
+  }
+});
+
+check('README simple compose example uses named cache volume', () => {
+  const readme = read('README.md');
+  if (!readme.includes('tmdb-cache:/tmp/tmdb-cache')) {
+    throw new Error('README compose example does not use named cache volume');
+  }
+  if (readme.includes('./cache:/tmp/tmdb-cache')) {
+    throw new Error('README compose example still uses root-owned bind cache path');
+  }
+});
+
+check('README documents PORT as host publish port', () => {
+  const readme = read('README.md');
+  if (!readme.includes('Compose 对外发布端口，容器内固定监听 `54321`')) {
+    throw new Error('README PORT description does not match Compose behavior');
+  }
+});
 check('repository ignores local secrets and runtime data', () => {
   const gitignore = read('.gitignore');
   for (const required of ['.env', '!.env.example', 'cache/', 'logs/']) {

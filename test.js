@@ -21,7 +21,7 @@ function requestAdmin(port, method, pathname, headers = {}, body = '') {
     }, res => {
       const chunks = [];
       res.on('data', chunk => chunks.push(chunk));
-      res.on('end', () => resolve({ status: res.statusCode, body: Buffer.concat(chunks).toString('utf8') }));
+      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString('utf8') }));
     });
     req.on('error', reject);
     if (body) req.write(body);
@@ -45,6 +45,13 @@ assert.ok(!sanitizedUrl.includes('tmdb-private'));
 assert.ok(!sanitizedUrl.includes('client-private'));
 assert.ok(!sanitizedUrl.includes('admin-private'));
 assert.ok(sanitizedUrl.includes('query=test'));
+const encodedSecretUrl = _internals.sanitizeRequestUrl(
+  '/3/search/movie?api%5Fkey=encoded-tmdb&query=test&%61dmin_key=encoded-admin&Key=encoded-key&key=encoded-key-2'
+);
+assert.ok(!encodedSecretUrl.includes('encoded-tmdb'));
+assert.ok(!encodedSecretUrl.includes('encoded-admin'));
+assert.ok(!encodedSecretUrl.includes('encoded-key'));
+assert.ok(encodedSecretUrl.includes('query=test'));
 assert.strictEqual(
   _internals.sanitizeRequestUrl('/3/movie/1?language=zh-CN'),
   '/3/movie/1?language=zh-CN'
@@ -93,6 +100,10 @@ assert.match(
   dashboardHtml,
   /fetchJSON\(\s*["']\/admin\/clear-cache\?type=all["']\s*,\s*\{\s*method\s*:\s*["']POST["']\s*}\s*\)/
 );
+
+const readme = fs.readFileSync(path.join(__dirname, 'README.md'), 'utf8');
+assert.match(readme, /tmdb-cache:\/tmp\/tmdb-cache/);
+assert.doesNotMatch(readme, /\.\/cache:\/tmp\/tmdb-cache/);
 
 const lru = new _internals.LRUCache(5);
 lru.set('a', Buffer.from('aaa'), 'text/plain');
@@ -164,11 +175,53 @@ assert.strictEqual(_internals.shouldRecordRequest(realIpReq, '/3/movie/1', 'api'
     assert.strictEqual(sameOriginClear.status, 200);
     assert.strictEqual(_internals.cacheGet('cache-clear-get-rejection'), null);
 
+    _internals.cacheSet('proxy-cache-clear', { ok: true }, 60);
+    const proxySameOriginClear = await requestAdmin(port, 'POST', '/admin/clear-cache?type=api', {
+      'X-Admin-Key': 'admin-secret',
+      Host: `127.0.0.1:${port}`,
+      Origin: 'https://example.com',
+      'Sec-Fetch-Site': 'same-origin'
+    });
+    assert.strictEqual(proxySameOriginClear.status, 200);
+    assert.strictEqual(_internals.cacheGet('proxy-cache-clear'), null);
+
     const oversizedAuthBody = JSON.stringify({ admin_key: 'x'.repeat(16 * 1024) });
     const oversizedAuth = await requestAdmin(port, 'POST', '/admin/auth', {
       'Content-Type': 'application/json'
     }, oversizedAuthBody);
     assert.strictEqual(oversizedAuth.status, 413);
+
+    const crossSiteAuth = await requestAdmin(port, 'POST', '/admin/auth', {
+      'Content-Type': 'application/json',
+      Origin: 'https://attacker.example',
+      'Sec-Fetch-Site': 'cross-site'
+    }, JSON.stringify({ admin_key: 'admin-secret' }));
+    assert.strictEqual(crossSiteAuth.status, 403);
+    assert.ok(!crossSiteAuth.headers['access-control-allow-origin']);
+
+    const badAuthHeaders = {
+      'Content-Type': 'application/json',
+      Origin: origin,
+      'Sec-Fetch-Site': 'same-origin',
+      'X-Forwarded-For': '203.0.113.10'
+    };
+    for (let i = 0; i < 5; i++) {
+      const failedAuth = await requestAdmin(port, 'POST', '/admin/auth', badAuthHeaders, JSON.stringify({ admin_key: `bad-${i}` }));
+      assert.strictEqual(failedAuth.status, 401);
+      assert.ok(!failedAuth.headers['access-control-allow-origin']);
+    }
+    const throttledAuth = await requestAdmin(port, 'POST', '/admin/auth', badAuthHeaders, JSON.stringify({ admin_key: 'bad-limit' }));
+    assert.strictEqual(throttledAuth.status, 429);
+    assert.strictEqual(throttledAuth.headers['retry-after'], '60');
+
+    const goodAuth = await requestAdmin(port, 'POST', '/admin/auth', {
+      'Content-Type': 'application/json',
+      Origin: origin,
+      'Sec-Fetch-Site': 'same-origin',
+      'X-Forwarded-For': '203.0.113.11'
+    }, JSON.stringify({ admin_key: 'admin-secret' }));
+    assert.strictEqual(goodAuth.status, 200);
+    assert.ok(!goodAuth.headers['access-control-allow-origin']);
   } finally {
     await new Promise(resolve => server.close(resolve));
     shutdown();

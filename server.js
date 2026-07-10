@@ -25,6 +25,9 @@ const RETRY_DELAY_MS = Number(process.env.RETRY_DELAY_MS) || 150;
 const DISK_CACHE_SIZE_TTL_MS = Number(process.env.DISK_CACHE_SIZE_TTL_MS) || 30000;
 const DISK_CACHE_CLEANUP_INTERVAL_MS = Number(process.env.DISK_CACHE_CLEANUP_INTERVAL_MS) || 600000;
 const ADMIN_AUTH_BODY_MAX_BYTES = 8 * 1024;
+const ADMIN_AUTH_FAILURE_WINDOW_MS = 60 * 1000;
+const ADMIN_AUTH_SOURCE_FAILURE_LIMIT = 5;
+const ADMIN_AUTH_GLOBAL_FAILURE_LIMIT = 50;
 
 // ============== Keep-Alive Agent ==============
 const httpsAgent = new https.Agent({
@@ -49,6 +52,7 @@ const apiCache = new Map();
 const apiCacheExpiry = new Map();
 const http2Sessions = new Map();
 const REQUEST_LOGS = [];
+const adminAuthFailures = new Map();
 let diskCacheBytesSnapshot = 0;
 let diskCacheBytesSnapshotAt = 0;
 let diskCacheBytesRefreshPromise = null;
@@ -212,10 +216,29 @@ function getPathname(url) {
 }
 
 function sanitizeRequestUrl(url) {
-  return String(url || '').replace(
-    /([?&](?:api_key|key|admin_key)=)[^&#]*/gi,
-    '$1[REDACTED]'
-  );
+  const raw = String(url || '');
+  const hashIndex = raw.indexOf('#');
+  const withoutHash = hashIndex === -1 ? raw : raw.slice(0, hashIndex);
+  const hash = hashIndex === -1 ? '' : raw.slice(hashIndex);
+  const queryIndex = withoutHash.indexOf('?');
+  if (queryIndex === -1) return raw;
+
+  const prefix = withoutHash.slice(0, queryIndex + 1);
+  const query = withoutHash.slice(queryIndex + 1);
+  const secretKeys = new Set(['api_key', 'key', 'admin_key']);
+  const redacted = query.split('&').map(part => {
+    const equalsIndex = part.indexOf('=');
+    const rawName = equalsIndex === -1 ? part : part.slice(0, equalsIndex);
+    let decodedName = rawName;
+    try {
+      decodedName = decodeURIComponent(rawName.replace(/\+/g, ' '));
+    } catch {}
+    if (secretKeys.has(decodedName.toLowerCase())) {
+      return `${rawName}=[REDACTED]`;
+    }
+    return part;
+  });
+  return `${prefix}${redacted.join('&')}${hash}`;
 }
 
 function parseCookies(req) {
@@ -268,17 +291,48 @@ function cookieOptions(maxAgeSeconds) {
 function isSameOriginAdminMutation(req) {
   const fetchSite = String(req.headers['sec-fetch-site'] || '').toLowerCase();
   if (fetchSite === 'cross-site' || fetchSite === 'same-site') return false;
+  if (fetchSite === 'same-origin') return true;
 
   const origin = req.headers.origin;
   if (!origin) return true;
 
   try {
     const originUrl = new URL(origin);
-    return (originUrl.protocol === 'http:' || originUrl.protocol === 'https:')
-      && originUrl.host === req.headers.host;
+    if (originUrl.protocol !== 'http:' && originUrl.protocol !== 'https:') return false;
+    const forwardedHost = String(req.headers['x-forwarded-host'] || '').split(',')[0].trim();
+    const allowedHosts = [forwardedHost, req.headers.host]
+      .filter(Boolean)
+      .map(host => String(host).toLowerCase());
+    return allowedHosts.includes(originUrl.host.toLowerCase());
   } catch {
     return false;
   }
+}
+
+function adminAuthFailureBucket(key, now = Date.now()) {
+  const fresh = (adminAuthFailures.get(key) || []).filter(ts => now - ts < ADMIN_AUTH_FAILURE_WINDOW_MS);
+  adminAuthFailures.set(key, fresh);
+  return fresh;
+}
+
+function adminAuthSource(req) {
+  return normalizeIP(getClientIP(req));
+}
+
+function isAdminAuthRateLimited(req) {
+  const now = Date.now();
+  return adminAuthFailureBucket(`source:${adminAuthSource(req)}`, now).length >= ADMIN_AUTH_SOURCE_FAILURE_LIMIT
+    || adminAuthFailureBucket('global', now).length >= ADMIN_AUTH_GLOBAL_FAILURE_LIMIT;
+}
+
+function recordFailedAdminAuth(req) {
+  const now = Date.now();
+  adminAuthFailureBucket(`source:${adminAuthSource(req)}`, now).push(now);
+  adminAuthFailureBucket('global', now).push(now);
+}
+
+function resetAdminAuthFailures(req) {
+  adminAuthFailures.delete(`source:${adminAuthSource(req)}`);
 }
 
 function readRequestBody(req, maxBytes) {
@@ -371,7 +425,9 @@ function shouldCompress(req) {
 
 function sendJSONCompressed(req, res, status, data, headers = {}) {
   const body = JSON.stringify(data);
-  const baseHeaders = { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*', ...headers };
+  const { cors, ...responseHeaders } = headers;
+  const baseHeaders = { 'Content-Type': 'application/json; charset=utf-8', ...responseHeaders };
+  if (cors !== false) baseHeaders['Access-Control-Allow-Origin'] = '*';
 
   if (shouldCompress(req) && body.length > 1024) {
     zlib.gzip(body, (err, compressed) => {
@@ -387,6 +443,10 @@ function sendJSONCompressed(req, res, status, data, headers = {}) {
     res.writeHead(status, { ...baseHeaders, 'Content-Length': Buffer.byteLength(body) });
     res.end(body);
   }
+}
+
+function sendAdminJSONCompressed(req, res, status, data, headers = {}) {
+  sendJSONCompressed(req, res, status, data, { ...headers, cors: false });
 }
 
 // ============== 日志与指标 ==============
@@ -958,7 +1018,7 @@ async function handleAdminMetrics(req, res, query) {
 
   const memStats = imageMemCache.stats();
 
-  sendJSONCompressed(req, res, 200, {
+  sendAdminJSONCompressed(req, res, 200, {
     metrics: METRICS,
     uptime_hours: ((Date.now() - METRICS.startTime) / 3600000).toFixed(1),
     mem_cache: {
@@ -984,16 +1044,23 @@ async function handleAdminMetrics(req, res, query) {
 async function handleAdminLogs(req, res, query) {
   if (!checkAdminKey(req, query)) return send404(res);
   const limit = Math.min(1000, Math.max(1, Number(query.limit) || 200));
-  sendJSONCompressed(req, res, 200, REQUEST_LOGS.slice(-limit));
+  sendAdminJSONCompressed(req, res, 200, REQUEST_LOGS.slice(-limit));
 }
 
 async function handleAdminAuth(req, res) {
+  if (!isSameOriginAdminMutation(req)) {
+    return sendAdminJSONCompressed(req, res, 403, { ok: false, message: 'Cross-site admin auth denied' });
+  }
+  if (isAdminAuthRateLimited(req)) {
+    return sendAdminJSONCompressed(req, res, 429, { ok: false, message: 'Too many failed login attempts' }, { 'Retry-After': '60' });
+  }
+
   let body = '';
   try {
     body = await readRequestBody(req, ADMIN_AUTH_BODY_MAX_BYTES);
   } catch (error) {
     if (error.code === 'BODY_TOO_LARGE') {
-      return sendJSONCompressed(req, res, 413, { ok: false, message: 'Request body too large' });
+      return sendAdminJSONCompressed(req, res, 413, { ok: false, message: 'Request body too large' });
     }
     throw error;
   }
@@ -1003,24 +1070,29 @@ async function handleAdminAuth(req, res) {
 
   const adminKey = (process.env.ADMIN_API_KEY || '').trim();
   if (!adminKey) {
-    return sendJSONCompressed(req, res, 500, { ok: false, message: 'Admin auth not configured' });
+    return sendAdminJSONCompressed(req, res, 500, { ok: false, message: 'Admin auth not configured' });
   }
 
   if (timingSafeEqualString(data.admin_key || '', adminKey)) {
+    resetAdminAuthFailures(req);
     const maxAge = 7 * 24 * 60 * 60;
-    sendJSONCompressed(req, res, 200, { ok: true }, {
+    sendAdminJSONCompressed(req, res, 200, { ok: true }, {
       'Set-Cookie': [
         `admin_session=${createAdminSessionToken(maxAge)}; ${cookieOptions(maxAge)}`,
         `admin_key=; ${cookieOptions(0)}`
       ]
     });
   } else {
-    sendJSONCompressed(req, res, 401, { ok: false });
+    recordFailedAdminAuth(req);
+    sendAdminJSONCompressed(req, res, 401, { ok: false });
   }
 }
 
 async function handleAdminLogout(req, res) {
-  sendJSONCompressed(req, res, 200, { ok: true }, {
+  if (!isSameOriginAdminMutation(req)) {
+    return sendAdminJSONCompressed(req, res, 403, { ok: false, message: 'Cross-site admin logout denied' });
+  }
+  sendAdminJSONCompressed(req, res, 200, { ok: true }, {
     'Set-Cookie': [
       `admin_session=; ${cookieOptions(0)}`,
       `admin_key=; ${cookieOptions(0)}`
@@ -1034,7 +1106,7 @@ async function handleAdminStatus(req, res, query) {
   let diskBytes = 0;
   try { diskBytes = await getDiskCacheBytes(); } catch {}
 
-  sendJSONCompressed(req, res, 200, {
+  sendAdminJSONCompressed(req, res, 200, {
     status: 'active',
     version: VERSION,
     uptime: process.uptime(),
@@ -1058,7 +1130,7 @@ async function handleAdminRandomBg(req, res, query) {
 
   const apiKey = process.env.TMDB_API_KEY || '';
   if (!apiKey) {
-    return sendJSONCompressed(req, res, 200, { backdrop_path: null });
+    return sendAdminJSONCompressed(req, res, 200, { backdrop_path: null });
   }
 
   try {
@@ -1075,22 +1147,22 @@ async function handleAdminRandomBg(req, res, query) {
       const movies = data.results.filter(m => m.backdrop_path);
       if (movies.length > 0) {
         const pick = movies[Math.floor(Math.random() * movies.length)];
-        return sendJSONCompressed(req, res, 200, { backdrop_path: pick.backdrop_path });
+        return sendAdminJSONCompressed(req, res, 200, { backdrop_path: pick.backdrop_path });
       }
     }
-    sendJSONCompressed(req, res, 200, { backdrop_path: null });
+    sendAdminJSONCompressed(req, res, 200, { backdrop_path: null });
   } catch (e) {
-    sendJSONCompressed(req, res, 200, { backdrop_path: null });
+    sendAdminJSONCompressed(req, res, 200, { backdrop_path: null });
   }
 }
 
 // ============== 清除缓存管理端点 ==============
 async function handleAdminClearCache(req, res, query) {
   if (req.method !== 'POST') {
-    return sendJSONCompressed(req, res, 405, { error: 'Method not allowed' }, { Allow: 'POST' });
+    return sendAdminJSONCompressed(req, res, 405, { error: 'Method not allowed' }, { Allow: 'POST' });
   }
   if (!isSameOriginAdminMutation(req)) {
-    return sendJSONCompressed(req, res, 403, { error: 'Cross-site admin mutation denied' });
+    return sendAdminJSONCompressed(req, res, 403, { error: 'Cross-site admin mutation denied' });
   }
   if (!checkAdminKey(req, query)) return send404(res);
 
@@ -1125,14 +1197,28 @@ async function handleAdminClearCache(req, res, query) {
     setDiskCacheBytesSnapshot(0);
   }
 
-  sendJSONCompressed(req, res, 200, { ok: true, ...result });
+  sendAdminJSONCompressed(req, res, 200, { ok: true, ...result });
 }
 
 // ============== 主服务器 ==============
 const server = http.createServer(async (req, res) => {
   const start = Date.now();
+  const pathname = getPathname(req.url);
+  const query = parseQuery(req.url);
 
   if (req.method === 'OPTIONS') {
+    if (pathname.startsWith('/admin/')) {
+      if (!isSameOriginAdminMutation(req)) {
+        res.writeHead(403, { 'Content-Length': 0 });
+        return res.end();
+      }
+      res.writeHead(204, {
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, X-API-Key, X-Admin-Key',
+        'Access-Control-Max-Age': '86400'
+      });
+      return res.end();
+    }
     res.writeHead(204, {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -1142,8 +1228,6 @@ const server = http.createServer(async (req, res) => {
     return res.end();
   }
 
-  const pathname = getPathname(req.url);
-  const query = parseQuery(req.url);
   let type = 'other';
   let cacheStatus = '';
 
@@ -1180,7 +1264,11 @@ const server = http.createServer(async (req, res) => {
     send404(res);
   } catch (err) {
     console.error('Server error:', err);
-    sendJSONCompressed(req, res, 500, { error: 'Internal server error' });
+    if (pathname.startsWith('/admin/')) {
+      sendAdminJSONCompressed(req, res, 500, { error: 'Internal server error' });
+    } else {
+      sendJSONCompressed(req, res, 500, { error: 'Internal server error' });
+    }
   } finally {
     if (shouldRecordRequest(req, pathname, type)) {
       const entry = {

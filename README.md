@@ -60,7 +60,10 @@ services:
       - API_CACHE_TTL=600
       - API_CACHE_MAX_ITEMS=2000
     volumes:
-      - ./cache:/tmp/tmdb-cache
+      - tmdb-cache:/tmp/tmdb-cache
+
+volumes:
+  tmdb-cache:
 ```
 
 启动：
@@ -178,7 +181,7 @@ TMDB API 代理：
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
 | `BIND_ADDRESS` | `127.0.0.1` | Compose 对外绑定地址 |
-| `PORT` | `54321` | 容器内监听端口 |
+| `PORT` | `54321` | Compose 对外发布端口，容器内固定监听 `54321` |
 | `COOKIE_SECURE` | `true` | 是否只通过 HTTPS 发送管理登录 Cookie |
 | `FETCH_TIMEOUT_MS` | `15000` | TMDB 请求超时时间（毫秒） |
 | `API_RETRY_COUNT` | `2` | TMDB API 请求重试次数 |
