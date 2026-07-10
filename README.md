@@ -16,6 +16,13 @@ ghcr.io/qqcomeup/tmdb-proxy:latest
 
 ## 最简单部署
 
+下面两种部署方式二选一即可：
+
+- 如果直接把密钥写进 `docker-compose.yml`，就不需要再写 `.env`。
+- 如果使用仓库自带 `docker-compose.yml`，就把密钥写进 `.env`。
+
+### 方式一：直接写 docker-compose.yml
+
 新建目录：
 
 ```bash
@@ -80,7 +87,7 @@ http://服务器IP:54321/health
 http://服务器IP:54321/admin/dashboard
 ```
 
-## 使用仓库自带 compose
+### 方式二：使用仓库自带 compose + .env
 
 克隆仓库：
 
