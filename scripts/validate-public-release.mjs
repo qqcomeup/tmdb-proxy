@@ -67,12 +67,25 @@ check('GitHub Actions builds and pushes GHCR image', () => {
     'docker/login-action',
     'docker/metadata-action',
     'docker/build-push-action',
+    'docker/setup-qemu-action',
+    'platforms: linux/amd64,linux/arm64',
+    'npm test',
     'ghcr.io/${{ github.repository_owner }}/tmdb-proxy',
     "push: ${{ github.event_name != 'pull_request' }}",
   ]) {
     if (!workflow.includes(required)) {
       throw new Error(`workflow missing: ${required}`);
     }
+  }
+});
+
+check('server redacts request query secrets from logs', () => {
+  const server = read('server.js');
+  if (!server.includes('sanitizeRequestUrl(req.url)')) {
+    throw new Error('request logging does not sanitize req.url');
+  }
+  if (!server.includes('api_key|key|admin_key')) {
+    throw new Error('query secret keys are not covered by redaction');
   }
 });
 
