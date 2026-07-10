@@ -207,4 +207,3 @@ Run the complete command set from Step 1 again. Expected: all exit 0.
 git add admin-dashboard.html test.js
 git commit -m "fix: polish cinematic dashboard responsiveness"
 ```
-
