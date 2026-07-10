@@ -211,6 +211,13 @@ function getPathname(url) {
   }
 }
 
+function sanitizeRequestUrl(url) {
+  return String(url || '').replace(
+    /([?&](?:api_key|key|admin_key)=)[^&#]*/gi,
+    '$1[REDACTED]'
+  );
+}
+
 function parseCookies(req) {
   const header = req.headers['cookie'] || '';
   const out = {};
@@ -1180,7 +1187,7 @@ const server = http.createServer(async (req, res) => {
         time: Date.now(),
         ip: getClientIP(req),
         method: req.method,
-        path: req.url,
+        path: sanitizeRequestUrl(req.url),
         status: res.statusCode,
         durationMs: Date.now() - start,
         type,
@@ -1254,6 +1261,7 @@ module.exports = {
   _internals: {
     parseQuery,
     getPathname,
+    sanitizeRequestUrl,
     getApiKey,
     getApiCacheKey,
     isSafeImagePath,

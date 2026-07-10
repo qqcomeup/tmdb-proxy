@@ -38,6 +38,17 @@ assert.deepStrictEqual(_internals.parseQuery('/3/movie?with_genres=1,2'), {
 });
 
 assert.strictEqual(_internals.getPathname('/3/movie/123?api_key=client'), '/3/movie/123');
+const sanitizedUrl = _internals.sanitizeRequestUrl(
+  '/3/search/movie?api_key=tmdb-private&query=test&key=client-private&ADMIN_KEY=admin-private'
+);
+assert.ok(!sanitizedUrl.includes('tmdb-private'));
+assert.ok(!sanitizedUrl.includes('client-private'));
+assert.ok(!sanitizedUrl.includes('admin-private'));
+assert.ok(sanitizedUrl.includes('query=test'));
+assert.strictEqual(
+  _internals.sanitizeRequestUrl('/3/movie/1?language=zh-CN'),
+  '/3/movie/1?language=zh-CN'
+);
 assert.strictEqual(_internals.getApiKey({ headers: {} }, {}), 'server-key');
 assert.strictEqual(
   _internals.getApiCacheKey('/3/search/movie', { query: 'a', page: '1', api_key: 'client-a' }),
