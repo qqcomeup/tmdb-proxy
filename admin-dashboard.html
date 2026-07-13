@@ -471,12 +471,9 @@
     function updateAlert(diskPct, memPct) {
       if (diskPct >= 90 || memPct >= 90) {
         metricAlert.style.display = 'block';
-        metricAlert.textContent = `资源告警：${diskPct >= 90 ? '磁盘缓存' : '内存缓存'}已超过 90%，建议尽快清理。`;
-        return;
-      }
-      if (diskPct >= 80 || memPct >= 80) {
-        metricAlert.style.display = 'block';
-        metricAlert.textContent = `资源预警：${diskPct >= 80 ? '磁盘缓存' : '内存缓存'}已超过 80%，建议关注增长趋势。`;
+        metricAlert.textContent = diskPct >= 90
+          ? '磁盘缓存使用率已超过 90%，后台会按容量上限自动清理旧缓存。'
+          : '图片内存缓存使用率已超过 90%，LRU 会自动淘汰旧图片缓存。';
         return;
       }
       metricAlert.style.display = 'none';

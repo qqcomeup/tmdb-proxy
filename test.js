@@ -106,6 +106,11 @@ assert.match(dashboardHtml, /id=["']btn_changebg["']/);
 assert.match(dashboardHtml, /prefers-reduced-motion:\s*reduce/);
 assert.match(dashboardHtml, /event\.key\s*===\s*["']Escape["']/);
 assert.doesNotMatch(dashboardHtml, /播放预告|热门 TOP|海报墙/);
+assert.ok(dashboardHtml.includes('diskPct >= 90 || memPct >= 90'));
+assert.ok(!dashboardHtml.includes('diskPct >= 80 || memPct >= 80'));
+assert.ok(dashboardHtml.includes('图片内存缓存使用率已超过 90%'));
+assert.ok(!dashboardHtml.includes('资源告警'));
+assert.ok(!dashboardHtml.includes('资源预警'));
 
 const readme = fs.readFileSync(path.join(__dirname, 'README.md'), 'utf8');
 assert.match(readme, /tmdb-cache:\/tmp\/tmdb-cache/);
