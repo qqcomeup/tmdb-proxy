@@ -10,7 +10,7 @@ services:
       - TMDB_API_KEY=${TMDB_API_KEY:?TMDB_API_KEY is required}
       - ADMIN_API_KEY=${ADMIN_API_KEY:?ADMIN_API_KEY is required}
       - IMAGE_DISK_CACHE_DIR=/tmp/tmdb-cache
-      - COOKIE_SECURE=${COOKIE_SECURE:-false}
+      - COOKIE_SECURE=${COOKIE_SECURE:-true}
       - TRUST_PROXY=${TRUST_PROXY:-false}
     volumes:
       - tmdb-cache:/tmp/tmdb-cache

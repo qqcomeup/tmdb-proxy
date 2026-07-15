@@ -131,7 +131,7 @@ TMDB_API_KEY=你的_TMDB_API_KEY
 ADMIN_API_KEY=你的管理密码
 ```
 
-如果是 HTTPS 反代，再把 `.env` 里的 `COOKIE_SECURE` 改成 `true`。
+仓库 Compose 默认按 HTTPS 反代部署，`.env.example` 已设置 `COOKIE_SECURE=true`。如果只是本机 HTTP 测试，可改成 `false`。
 
 启动：
 
