@@ -74,7 +74,7 @@ http://127.0.0.1:54321/admin/dashboard
 - `TMDB_API_KEY`
 - `ADMIN_API_KEY`
 
-缓存容量、超时、重试、响应大小限制都有内置默认值。
+缓存容量、内存缓存、超时、重试、响应大小限制都有内置默认值，不需要写进 Compose。
 
 ## 反向代理
 
@@ -93,6 +93,7 @@ HTTPS 反代时建议加：
 environment:
   - TMDB_API_KEY=你的_TMDB_API_KEY
   - ADMIN_API_KEY=你的管理密码
+  - IMAGE_DISK_CACHE_DIR=/tmp/tmdb-cache
   - COOKIE_SECURE=true
 ```
 
@@ -129,6 +130,8 @@ cp .env.example .env
 TMDB_API_KEY=你的_TMDB_API_KEY
 ADMIN_API_KEY=你的管理密码
 ```
+
+如果是 HTTPS 反代，再把 `.env` 里的 `COOKIE_SECURE` 改成 `true`。
 
 启动：
 
