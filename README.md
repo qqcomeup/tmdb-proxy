@@ -49,6 +49,7 @@ services:
     environment:
       - TMDB_API_KEY=你的_TMDB_API_KEY
       - ADMIN_API_KEY=你的管理密码
+      - COOKIE_SECURE=true
     volumes:
       - tmdb-cache:/tmp/tmdb-cache
 
