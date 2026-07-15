@@ -12,6 +12,12 @@
 
 管理面板采用极简电影控制台设计，首页只显示服务状态、请求量、缓存命中率、实时速率和错误率。缓存容量、状态码与访问日志收纳在右侧详情抽屉中。
 
+内置三种面板风格，可在详情抽屉中的“风格”按钮切换，并保存在浏览器本地：
+
+- `Aurora Glass`：暗色玻璃拟态，适合作为默认监控面板。
+- `Terminal`：绿色终端风，适合运维场景。
+- `Swiss Editorial`：浅色瑞士排版风，适合白底后台环境。
+
 ### 桌面端
 
 ![TMDB Proxy 桌面端管理面板](docs/images/admin-dashboard-desktop.webp)
@@ -71,17 +77,8 @@ services:
     ports:
       - "127.0.0.1:54321:54321"
     environment:
-      - NODE_ENV=production
-      - PORT=54321
       - TMDB_API_KEY=你的_TMDB_API_KEY
       - ADMIN_API_KEY=你的管理密码
-      - COOKIE_SECURE=false
-      - IMAGE_DISK_CACHE_ENABLED=true
-      - IMAGE_DISK_CACHE_DIR=/tmp/tmdb-cache
-      - IMAGE_DISK_CACHE_MAX_GB=1
-      - IMAGE_MEM_CACHE_MAX_MB=100
-      - API_CACHE_TTL=600
-      - API_CACHE_MAX_ITEMS=2000
     volumes:
       - tmdb-cache:/tmp/tmdb-cache
 
@@ -123,6 +120,8 @@ http://服务器IP:54321/health
 http://服务器IP:54321/admin/dashboard
 ```
 
+缓存容量、超时、重试、响应大小限制都有内置默认值；普通部署只需要填写 `TMDB_API_KEY` 和 `ADMIN_API_KEY`。
+
 ### 方式二：使用仓库自带 Compose + .env
 
 克隆仓库：
@@ -162,6 +161,14 @@ COOKIE_SECURE=false
 ```env
 COOKIE_SECURE=true
 ```
+
+如果希望访问日志和限流使用真实客户端 IP，而不是反向代理 IP，再开启：
+
+```env
+TRUST_PROXY=true
+```
+
+仅在你的服务确实只接受可信反向代理转发时开启 `TRUST_PROXY`；直接公网暴露时保持默认 `false`。
 
 ## 常用接口
 
