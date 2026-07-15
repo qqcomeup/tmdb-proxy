@@ -114,6 +114,11 @@ assert.match(
 assert.match(dashboardHtml, /id=["']details_drawer["']/);
 assert.match(dashboardHtml, /id=["']btn_details["'][^>]*aria-controls=["']details_drawer["'][^>]*aria-expanded=["']false["']/);
 assert.match(dashboardHtml, /id=["']btn_changebg["']/);
+assert.match(dashboardHtml, /\['aurora', 'Aurora Glass'\]/);
+assert.match(dashboardHtml, /\['terminal', 'Terminal'\]/);
+assert.match(dashboardHtml, /\['swiss', 'Swiss Editorial'\]/);
+assert.match(dashboardHtml, /data-theme="terminal"/);
+assert.match(dashboardHtml, /data-theme="swiss"/);
 assert.match(dashboardHtml, /prefers-reduced-motion:\s*reduce/);
 assert.match(dashboardHtml, /event\.key\s*===\s*["']Escape["']/);
 assert.doesNotMatch(dashboardHtml, /播放预告|热门 TOP|海报墙/);
