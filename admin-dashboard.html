@@ -314,8 +314,8 @@
       '4xx': { label: '4xx异常', test: l => Number(l.status) >= 400 && Number(l.status) < 500 },
       slow: { label: '慢请求', test: l => Number(l.durationMs) >= 1000 },
       miss: { label: '缓存未命中', test: l => String(l.cache || '').toUpperCase().includes('MISS') },
-      api: { label: '只看 API', test: l => String(l.type || '').toLowerCase() === 'api' },
-      image: { label: '只看图片', test: l => String(l.type || '').toLowerCase() === 'image' },
+      api: { label: '只看 API', test: l => String(l.type || '').toLowerCase().split(':').includes('api') },
+      image: { label: '只看图片', test: l => String(l.type || '').toLowerCase().split(':').includes('image') },
       upstream: { label: '上游请求', test: l => String(l.type || '').toLowerCase().startsWith('upstream:') }
     };
     let refreshTimer = null;

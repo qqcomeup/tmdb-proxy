@@ -122,6 +122,8 @@ assert.match(dashboardHtml, /data-theme="swiss"/);
 assert.match(dashboardHtml, /prefers-reduced-motion:\s*reduce/);
 assert.match(dashboardHtml, /event\.key\s*===\s*["']Escape["']/);
 assert.match(dashboardHtml, /upstream:\s*\{\s*label:\s*['"]上游请求['"]/);
+assert.match(dashboardHtml, /api:\s*\{\s*label:\s*['"]只看 API['"][\s\S]*includes\(['"]api['"]\)/);
+assert.match(dashboardHtml, /image:\s*\{\s*label:\s*['"]只看图片['"][\s\S]*includes\(['"]image['"]\)/);
 assert.match(dashboardHtml, /data-filter=["']upstream["'][^>]*>上游请求/);
 assert.match(dashboardHtml, /UPSTREAM/);
 assert.match(dashboardHtml, /formatBytes\(l\.bytes\)/);
