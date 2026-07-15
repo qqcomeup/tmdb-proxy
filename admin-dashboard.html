@@ -274,7 +274,7 @@
         </div>
         <card class="log-panel">
           <div class="log-toolbar"><div class="log-title-row"><label>最近访问日志</label><span id="v_log_filter_info" class="pill">全部 0/0</span></div></div>
-          <div class="log-filters" role="group" aria-label="日志筛选"><button class="chip-btn log-filter active" data-filter="all">全部</button><button class="chip-btn log-filter" data-filter="5xx">5xx错误</button><button class="chip-btn log-filter" data-filter="4xx">4xx异常</button><button class="chip-btn log-filter" data-filter="slow">慢请求</button><button class="chip-btn log-filter" data-filter="miss">缓存未命中</button><button class="chip-btn log-filter" data-filter="api">只看 API</button><button class="chip-btn log-filter" data-filter="image">只看图片</button></div>
+          <div class="log-filters" role="group" aria-label="日志筛选"><button class="chip-btn log-filter active" data-filter="all">全部</button><button class="chip-btn log-filter" data-filter="5xx">5xx错误</button><button class="chip-btn log-filter" data-filter="4xx">4xx异常</button><button class="chip-btn log-filter" data-filter="slow">慢请求</button><button class="chip-btn log-filter" data-filter="miss">缓存未命中</button><button class="chip-btn log-filter" data-filter="upstream">上游请求</button><button class="chip-btn log-filter" data-filter="api">只看 API</button><button class="chip-btn log-filter" data-filter="image">只看图片</button></div>
           <div id="v_logs" class="logs" aria-live="polite"></div>
         </card>
       </aside>
@@ -314,7 +314,8 @@
       slow: { label: '慢请求', test: l => Number(l.durationMs) >= 1000 },
       miss: { label: '缓存未命中', test: l => String(l.cache || '').toUpperCase().includes('MISS') },
       api: { label: '只看 API', test: l => String(l.type || '').toLowerCase() === 'api' },
-      image: { label: '只看图片', test: l => String(l.type || '').toLowerCase() === 'image' }
+      image: { label: '只看图片', test: l => String(l.type || '').toLowerCase() === 'image' },
+      upstream: { label: '上游请求', test: l => String(l.type || '').toLowerCase().startsWith('upstream:') }
     };
     let refreshTimer = null;
     let autoScroll = true;
@@ -350,6 +351,13 @@
 
     function formatNumber(value) {
       return new Intl.NumberFormat('zh-CN').format(Number(value) || 0);
+    }
+
+    function formatBytes(value) {
+      const bytes = Number(value) || 0;
+      if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+      if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${bytes} B`;
     }
 
     function formatPct(part, total) {
@@ -445,6 +453,7 @@
 
     function classifyCache(cache) {
       const text = String(cache || '-').toUpperCase();
+      if (text === 'UPSTREAM') return 'miss';
       if (text.includes('HIT')) return 'hit';
       if (text.includes('MISS')) return 'miss';
       return '';
@@ -488,7 +497,8 @@
       const body = document.createElement('div');
       body.className = `log-body ${isError ? 'expanded' : ''}`.trim();
       body.title = `${l.method} ${l.path}`;
-      body.textContent = `${l.method} ${l.path} · ${l.durationMs}ms · ${l.ip}`;
+      const byteInfo = String(l.type || '').toLowerCase().startsWith('upstream:') ? ` · ${formatBytes(l.bytes)}` : '';
+      body.textContent = `${l.method} ${l.path} · ${l.durationMs}ms${byteInfo} · ${l.ip}`;
       body.addEventListener('click', () => body.classList.toggle('expanded'));
 
       const copy = document.createElement('button');

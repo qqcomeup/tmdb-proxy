@@ -121,6 +121,10 @@ assert.match(dashboardHtml, /data-theme="terminal"/);
 assert.match(dashboardHtml, /data-theme="swiss"/);
 assert.match(dashboardHtml, /prefers-reduced-motion:\s*reduce/);
 assert.match(dashboardHtml, /event\.key\s*===\s*["']Escape["']/);
+assert.match(dashboardHtml, /upstream:\s*\{\s*label:\s*['"]上游请求['"]/);
+assert.match(dashboardHtml, /data-filter=["']upstream["'][^>]*>上游请求/);
+assert.match(dashboardHtml, /UPSTREAM/);
+assert.match(dashboardHtml, /formatBytes\(l\.bytes\)/);
 assert.doesNotMatch(dashboardHtml, /播放预告|热门 TOP|海报墙/);
 assert.ok(dashboardHtml.includes('diskPct >= 90 || memPct >= 90'));
 assert.ok(!dashboardHtml.includes('diskPct >= 80 || memPct >= 80'));
@@ -197,6 +201,39 @@ assert.strictEqual(_internals.enforceResponseLimit(4, 4, 'api'), true);
   const origin = `http://127.0.0.1:${port}`;
 
   try {
+    assert.strictEqual(typeof _internals.recordUpstreamRequest, 'function');
+    _internals.recordUpstreamRequest({
+      kind: 'image',
+      method: 'GET',
+      url: 'https://image.tmdb.org/t/p/w500/upstream-test.jpg',
+      status: 200,
+      durationMs: 12,
+      bytes: 3456
+    });
+    _internals.recordUpstreamRequest({
+      kind: 'api',
+      method: 'GET',
+      url: 'https://api.tmdb.org/3/movie/1?api_key=secret-key&language=zh-CN',
+      status: 200,
+      durationMs: 34,
+      bytes: 789
+    });
+    const upstreamLogsResponse = await requestAdmin(port, 'GET', '/admin/logs?limit=10', {
+      'X-Admin-Key': 'admin-secret'
+    });
+    assert.strictEqual(upstreamLogsResponse.status, 200);
+    const upstreamLogs = JSON.parse(upstreamLogsResponse.body);
+    assert.ok(upstreamLogs.some(entry => (
+      entry.type === 'upstream:image' &&
+      entry.path === 'https://image.tmdb.org/t/p/w500/upstream-test.jpg' &&
+      entry.cache === 'UPSTREAM' &&
+      entry.bytes === 3456
+    )));
+    const upstreamApiLog = upstreamLogs.find(entry => entry.type === 'upstream:api');
+    assert.ok(upstreamApiLog);
+    assert.ok(!upstreamApiLog.path.includes('secret-key'));
+    assert.ok(upstreamApiLog.path.includes('api_key=***'));
+
     _internals.cacheSet('cache-clear-get-rejection', { ok: true }, 60);
     const getClear = await requestAdmin(port, 'GET', '/admin/clear-cache?type=api', {
       'X-Admin-Key': 'admin-secret'

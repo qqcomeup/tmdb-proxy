@@ -551,6 +551,30 @@ function recordLog(entry) {
   }
 }
 
+function redactLogUrl(url) {
+  return sanitizeRequestUrl(String(url || '')).replace(/=\[REDACTED\]/g, '=***');
+}
+
+function recordUpstreamRequest({ kind, method = 'GET', url, status = 0, durationMs = 0, bytes = 0, error = '' }) {
+  const safeKind = kind === 'api' ? 'api' : 'image';
+  const entry = {
+    time: Date.now(),
+    ip: 'upstream',
+    method,
+    path: redactLogUrl(url),
+    status,
+    durationMs,
+    type: `upstream:${safeKind}`,
+    cache: 'UPSTREAM',
+    bytes
+  };
+  if (error) entry.error = String(error).slice(0, 200);
+  recordLog(entry);
+  const suffix = error ? ` error=${entry.error}` : ` bytes=${bytes}`;
+  console.log(`[${new Date(entry.time).toISOString()}] upstream ${method} ${entry.path} ${status} ${durationMs}ms ${entry.cache}${suffix}`);
+  return entry;
+}
+
 // ============== HTTPS 请求（使用 HTTP/2，带自动解压和重试） ==============
 const http2 = require('http2');
 
@@ -1016,6 +1040,7 @@ async function handleImage(req, res, pathname) {
   try {
     const { result: upstream, deduped } = await fetchWithDedup(pathname, async () => {
       const urlObj = new URL(`https://image.tmdb.org${pathname}`);
+      const upstreamUrl = urlObj.toString();
       const reqOptions = {
         hostname: urlObj.hostname,
         port: 443,
@@ -1026,7 +1051,29 @@ async function handleImage(req, res, pathname) {
         timeout: FETCH_TIMEOUT_MS
       };
 
-      return httpsImageRequest(reqOptions);
+      const upstreamStart = Date.now();
+      try {
+        const response = await httpsImageRequest(reqOptions);
+        recordUpstreamRequest({
+          kind: 'image',
+          method: 'GET',
+          url: upstreamUrl,
+          status: response.status,
+          durationMs: Date.now() - upstreamStart,
+          bytes: response.buffer ? response.buffer.length : 0
+        });
+        return response;
+      } catch (error) {
+        recordUpstreamRequest({
+          kind: 'image',
+          method: 'GET',
+          url: upstreamUrl,
+          status: 0,
+          durationMs: Date.now() - upstreamStart,
+          error: error.message
+        });
+        throw error;
+      }
     });
 
     if (upstream.status !== 200) {
@@ -1108,7 +1155,29 @@ async function handleAPI(req, res, pathname, query) {
   const apiUrl = `https://api.tmdb.org${pathname}?${queryString}`;
 
   try {
-    const upstream = await httpsRequest(apiUrl, { headers: { 'Accept': 'application/json' } });
+    const upstreamStart = Date.now();
+    let upstream;
+    try {
+      upstream = await httpsRequest(apiUrl, { headers: { 'Accept': 'application/json' } });
+      recordUpstreamRequest({
+        kind: 'api',
+        method: 'GET',
+        url: apiUrl,
+        status: upstream.status,
+        durationMs: Date.now() - upstreamStart,
+        bytes: upstream.body ? upstream.body.length : 0
+      });
+    } catch (error) {
+      recordUpstreamRequest({
+        kind: 'api',
+        method: 'GET',
+        url: apiUrl,
+        status: 0,
+        durationMs: Date.now() - upstreamStart,
+        error: error.message
+      });
+      throw error;
+    }
     let text = upstream.body.toString('utf8');
 
     // 去掉 BOM
@@ -1531,6 +1600,7 @@ module.exports = {
     getClientIP,
     resolveCorsOrigin,
     corsHeaders,
-    enforceResponseLimit
+    enforceResponseLimit,
+    recordUpstreamRequest
   }
 };
