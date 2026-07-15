@@ -207,10 +207,15 @@ TMDB API 代理：
 | `PORT` | `54321` | Compose 对外发布端口，容器内固定监听 `54321` |
 | `COOKIE_SECURE` | `true` | 是否只通过 HTTPS 发送管理登录 Cookie |
 | `FETCH_TIMEOUT_MS` | `15000` | TMDB 请求超时时间（毫秒） |
+| `API_RESPONSE_MAX_MB` | `5` | TMDB API 单次响应最大体积（MB），超限会中断请求 |
+| `IMAGE_RESPONSE_MAX_MB` | `20` | TMDB 图片单次响应最大体积（MB），超限会中断请求 |
 | `API_RETRY_COUNT` | `2` | TMDB API 请求重试次数 |
 | `IMAGE_RETRY_COUNT` | `1` | 图片请求重试次数 |
 | `RETRY_DELAY_MS` | `150` | 重试间隔（毫秒） |
+| `TRUST_PROXY` | `false` | 是否信任反向代理提供的 `X-Forwarded-For` / `X-Real-IP`。直接公网暴露时保持 `false` |
+| `CORS_ALLOW_ORIGIN` | `*` | CORS 允许来源。可设置为逗号分隔白名单 |
 | `API_CACHE_MAX_ITEMS` | `2000` | API 缓存最大条目数 |
+| `API_CACHE_MAX_MB` | `50` | API 缓存最大内存占用估算值（MB） |
 | `API_CACHE_TTL` | `600` | API 缓存秒数 |
 | `IMAGE_CACHE_TTL` | `604800` | 图片缓存秒数 |
 | `IMAGE_DISK_CACHE_ENABLED` | `true` | 是否启用图片磁盘缓存 |

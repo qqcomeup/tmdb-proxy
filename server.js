@@ -17,7 +17,13 @@ const IMAGE_DISK_CACHE_MAX_BYTES = Math.floor(IMAGE_DISK_CACHE_MAX_GB * 1024 * 1
 const IMAGE_MEM_CACHE_MAX_MB = Number(process.env.IMAGE_MEM_CACHE_MAX_MB) || 100;
 const IMAGE_MEM_CACHE_MAX_BYTES = IMAGE_MEM_CACHE_MAX_MB * 1024 * 1024;
 const FETCH_TIMEOUT_MS = Number(process.env.FETCH_TIMEOUT_MS) || 15000;
+const API_RESPONSE_MAX_MB = Number(process.env.API_RESPONSE_MAX_MB) || 5;
+const IMAGE_RESPONSE_MAX_MB = Number(process.env.IMAGE_RESPONSE_MAX_MB) || 20;
+const API_RESPONSE_MAX_BYTES = Math.floor(API_RESPONSE_MAX_MB * 1024 * 1024);
+const IMAGE_RESPONSE_MAX_BYTES = Math.floor(IMAGE_RESPONSE_MAX_MB * 1024 * 1024);
 const API_CACHE_MAX_ITEMS = Number(process.env.API_CACHE_MAX_ITEMS) || 2000;
+const API_CACHE_MAX_MB = Number(process.env.API_CACHE_MAX_MB) || 50;
+const API_CACHE_MAX_BYTES = Math.floor(API_CACHE_MAX_MB * 1024 * 1024);
 const REQUEST_LOG_CAP = 500;
 const API_RETRY_COUNT = Number(process.env.API_RETRY_COUNT) || 2;
 const IMAGE_RETRY_COUNT = Number(process.env.IMAGE_RETRY_COUNT) || 1;
@@ -28,6 +34,13 @@ const ADMIN_AUTH_BODY_MAX_BYTES = 8 * 1024;
 const ADMIN_AUTH_FAILURE_WINDOW_MS = 60 * 1000;
 const ADMIN_AUTH_SOURCE_FAILURE_LIMIT = 5;
 const ADMIN_AUTH_GLOBAL_FAILURE_LIMIT = 50;
+const IMAGE_RATE_LIMIT_WINDOW_MS = Number(process.env.IMAGE_RATE_LIMIT_WINDOW_MS) || 60 * 1000;
+const IMAGE_RATE_LIMIT_MAX = Number(process.env.IMAGE_RATE_LIMIT_MAX) || 600;
+// CORS 允许来源：默认 '*' 保持现有行为；配置逗号分隔白名单后仅回显命中的 Origin
+const CORS_ALLOW_ORIGIN = (process.env.CORS_ALLOW_ORIGIN || '*').trim();
+const CORS_ALLOW_LIST = CORS_ALLOW_ORIGIN === '*'
+  ? null
+  : new Set(CORS_ALLOW_ORIGIN.split(',').map(s => s.trim().toLowerCase()).filter(Boolean));
 
 // ============== Keep-Alive Agent ==============
 const httpsAgent = new https.Agent({
@@ -50,16 +63,19 @@ const apiAgent = new https.Agent({
 // ============== 全局状态 ==============
 const apiCache = new Map();
 const apiCacheExpiry = new Map();
+const apiCacheSizes = new Map();
+let apiCacheBytes = 0;
 const http2Sessions = new Map();
 const REQUEST_LOGS = [];
 const adminAuthFailures = new Map();
+const imageRateBuckets = new Map();
 let diskCacheBytesSnapshot = 0;
 let diskCacheBytesSnapshotAt = 0;
 let diskCacheBytesRefreshPromise = null;
 const METRICS = {
   startTime: Date.now(),
   total: 0,
-  image: { total: 0, mem_hit: 0, disk_hit: 0, miss: 0 },
+  image: { total: 0, mem_hit: 0, disk_hit: 0, dedup_hit: 0, miss: 0 },
   api: { total: 0, hit: 0, miss: 0 },
   other: { total: 0 },
   errors: { total: 0, api_502: 0, api_503: 0, timeout: 0 },
@@ -114,7 +130,7 @@ const pendingRequests = new Map();
 
 async function fetchWithDedup(key, fetchFn) {
   if (pendingRequests.has(key)) {
-    return pendingRequests.get(key);
+    return { result: await pendingRequests.get(key), deduped: true };
   }
 
   const promise = (async () => {
@@ -126,50 +142,67 @@ async function fetchWithDedup(key, fetchFn) {
   })();
 
   pendingRequests.set(key, promise);
-  return promise;
+  return { result: await promise, deduped: false };
 }
 
 // ============== API 缓存函数 ==============
+function apiCacheDelete(key) {
+  if (!apiCache.has(key)) return;
+  apiCacheBytes -= apiCacheSizes.get(key) || 0;
+  if (apiCacheBytes < 0) apiCacheBytes = 0;
+  apiCache.delete(key);
+  apiCacheExpiry.delete(key);
+  apiCacheSizes.delete(key);
+}
+
 function cacheGet(key) {
   const expiry = apiCacheExpiry.get(key);
   if (expiry && Date.now() > expiry) {
-    apiCache.delete(key);
-    apiCacheExpiry.delete(key);
+    apiCacheDelete(key);
     return null;
   }
   return apiCache.get(key) || null;
 }
 
 function cacheSet(key, value, ttlSeconds) {
+  // 估算条目字节大小（JSON 序列化长度），用于字节维度上限
+  let size;
+  try { size = Buffer.byteLength(JSON.stringify(value)); } catch { size = 0; }
+
+  apiCacheDelete(key);
   apiCache.set(key, value);
   apiCacheExpiry.set(key, Date.now() + ttlSeconds * 1000);
+  apiCacheSizes.set(key, size);
+  apiCacheBytes += size;
 
-  // 超过上限时批量清理过期条目
-  if (apiCache.size > API_CACHE_MAX_ITEMS) {
+  // 超过条目或字节上限时批量清理过期条目
+  if (apiCache.size > API_CACHE_MAX_ITEMS || apiCacheBytes > API_CACHE_MAX_BYTES) {
     const now = Date.now();
     let cleaned = 0;
     for (const [k, exp] of apiCacheExpiry) {
       if (exp < now) {
-        apiCache.delete(k);
-        apiCacheExpiry.delete(k);
+        apiCacheDelete(k);
         cleaned++;
       }
       if (cleaned > 200) break;
     }
-    // 如果清理后仍然超限，删除最旧的
-    if (apiCache.size > API_CACHE_MAX_ITEMS) {
+    // 如果清理后仍然超限（条目或字节），从最旧的开始删除
+    while ((apiCache.size > API_CACHE_MAX_ITEMS || apiCacheBytes > API_CACHE_MAX_BYTES)
+           && apiCache.size > 0) {
       const firstKey = apiCache.keys().next().value;
-      apiCache.delete(firstKey);
-      apiCacheExpiry.delete(firstKey);
+      apiCacheDelete(firstKey);
     }
   }
 }
 
 // ============== 工具函数 ==============
 function getClientIP(req) {
-  const xff = req.headers['x-forwarded-for'];
-  if (xff) return xff.split(',')[0].trim();
-  return req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
+  if ((process.env.TRUST_PROXY || '').toLowerCase() === 'true') {
+    const xff = req.headers['x-forwarded-for'];
+    if (xff) return xff.split(',')[0].trim();
+    if (req.headers['x-real-ip']) return req.headers['x-real-ip'];
+  }
+  return req.socket?.remoteAddress || 'unknown';
 }
 
 function hasForwardedClientIP(req) {
@@ -190,10 +223,33 @@ function isLocalOrPrivateIP(ip) {
     || /^172\.(1[6-9]|2\d|3[0-1])\./.test(value);
 }
 
+function resolveCorsOrigin(req) {
+  if (!CORS_ALLOW_LIST) return '*';
+  const origin = req.headers.origin;
+  if (origin && CORS_ALLOW_LIST.has(String(origin).toLowerCase())) return origin;
+  return null;
+}
+
+function corsHeaders(req) {
+  const origin = resolveCorsOrigin(req);
+  const headers = {};
+  if (origin) headers['Access-Control-Allow-Origin'] = origin;
+  if (origin !== '*') headers.Vary = 'Origin';
+  return headers;
+}
+
+function enforceResponseLimit(currentBytes, maxBytes) {
+  return currentBytes <= maxBytes;
+}
+
+function responseWithinLimit(buffer, maxBytes) {
+  return Buffer.isBuffer(buffer) && enforceResponseLimit(buffer.length, maxBytes);
+}
+
 function shouldRecordRequest(req, pathname, type) {
   if (pathname === '/health' || pathname === '/ping') return false;
   if (type === 'other' && pathname.startsWith('/admin')) return false;
-  if (!hasForwardedClientIP(req) && isLocalOrPrivateIP(req.socket?.remoteAddress)) return false;
+  if (isLocalOrPrivateIP(getClientIP(req))) return false;
   return type !== 'other' || !pathname.startsWith('/admin');
 }
 
@@ -335,6 +391,26 @@ function resetAdminAuthFailures(req) {
   adminAuthFailures.delete(`source:${adminAuthSource(req)}`);
 }
 
+// 图片端点按客户端 IP 的滑动窗口限流（本地/内网 IP 不限流）
+function isImageRateLimited(req, now = Date.now()) {
+  const ip = normalizeIP(getClientIP(req));
+  if (!ip || ip === 'unknown' || isLocalOrPrivateIP(ip)) return false;
+  const fresh = (imageRateBuckets.get(ip) || []).filter(ts => now - ts < IMAGE_RATE_LIMIT_WINDOW_MS);
+  if (fresh.length >= IMAGE_RATE_LIMIT_MAX) {
+    imageRateBuckets.set(ip, fresh);
+    return true;
+  }
+  fresh.push(now);
+  imageRateBuckets.set(ip, fresh);
+  // 惰性清理：桶数量偏大时移除已过期的空桶
+  if (imageRateBuckets.size > 5000) {
+    for (const [key, arr] of imageRateBuckets) {
+      if (!arr.length || now - arr[arr.length - 1] >= IMAGE_RATE_LIMIT_WINDOW_MS) imageRateBuckets.delete(key);
+    }
+  }
+  return false;
+}
+
 function readRequestBody(req, maxBytes) {
   const contentLength = Number(req.headers['content-length']);
   if (Number.isFinite(contentLength) && contentLength > maxBytes) {
@@ -403,13 +479,8 @@ function getContentType(p) {
 
 // ============== ETag 生成 ==============
 function generateETag(buffer) {
-  const len = buffer.length;
-  const head = buffer.slice(0, Math.min(64, len));
-  const tail = buffer.slice(Math.max(0, len - 64));
-  let hash = len;
-  for (let i = 0; i < head.length; i++) hash = ((hash << 5) - hash + head[i]) | 0;
-  for (let i = 0; i < tail.length; i++) hash = ((hash << 5) - hash + tail[i]) | 0;
-  return `"${len.toString(16)}-${(hash >>> 0).toString(16)}"`;
+  const hash = crypto.createHash('sha1').update(buffer).digest('hex').slice(0, 20);
+  return `"${buffer.length.toString(16)}-${hash}"`;
 }
 
 function checkNotModified(req, etag) {
@@ -427,7 +498,7 @@ function sendJSONCompressed(req, res, status, data, headers = {}) {
   const body = JSON.stringify(data);
   const { cors, ...responseHeaders } = headers;
   const baseHeaders = { 'Content-Type': 'application/json; charset=utf-8', ...responseHeaders };
-  if (cors !== false) baseHeaders['Access-Control-Allow-Origin'] = '*';
+  if (cors !== false) Object.assign(baseHeaders, corsHeaders(req));
 
   if (shouldCompress(req) && body.length > 1024) {
     zlib.gzip(body, (err, compressed) => {
@@ -463,6 +534,7 @@ function recordLog(entry) {
     METRICS.image.total++;
     if (cache === 'MEM-HIT') METRICS.image.mem_hit++;
     else if (cache === 'DISK-HIT') METRICS.image.disk_hit++;
+    else if (cache === 'DEDUP-HIT') METRICS.image.dedup_hit++;
     else if (cache === 'MISS') METRICS.image.miss++;
   } else if (entry.type === 'api') {
     METRICS.api.total++;
@@ -546,6 +618,7 @@ function httpsRequestOnce(url, options = {}) {
     });
 
     const chunks = [];
+    let totalBytes = 0;
     let responseHeaders = {};
     let statusCode = 200;
 
@@ -554,8 +627,17 @@ function httpsRequestOnce(url, options = {}) {
       statusCode = hdrs[http2.constants.HTTP2_HEADER_STATUS] || 200;
     });
 
-    req.on('data', chunk => chunks.push(chunk));
-
+    req.on('data', chunk => {
+      if (settled) return;
+      totalBytes += chunk.length;
+      if (!enforceResponseLimit(totalBytes, options.maxBytes || API_RESPONSE_MAX_BYTES)) {
+        settled = true;
+        req.close();
+        reject(new Error('Upstream API response too large'));
+        return;
+      }
+      chunks.push(chunk);
+    });
     req.on('end', () => {
       if (settled) return;
       settled = true;
@@ -569,6 +651,8 @@ function httpsRequestOnce(url, options = {}) {
             if (err) {
               console.error('H2 gunzip failed:', err.message, '| bodyLen:', raw.length);
               resolve({ status: statusCode, headers: responseHeaders, body: raw });
+            } else if (!responseWithinLimit(decoded, options.maxBytes || API_RESPONSE_MAX_BYTES)) {
+              reject(new Error('Decoded upstream API response too large'));
             } else {
               resolve({ status: statusCode, headers: responseHeaders, body: decoded });
             }
@@ -580,11 +664,13 @@ function httpsRequestOnce(url, options = {}) {
         if (encoding === 'deflate') {
           zlib.inflate(raw, (err, decoded) => {
             if (err) resolve({ status: statusCode, headers: responseHeaders, body: raw });
+            else if (!responseWithinLimit(decoded, options.maxBytes || API_RESPONSE_MAX_BYTES)) reject(new Error('Decoded upstream API response too large'));
             else resolve({ status: statusCode, headers: responseHeaders, body: decoded });
           });
         } else if (encoding === 'br') {
           zlib.brotliDecompress(raw, (err, decoded) => {
             if (err) resolve({ status: statusCode, headers: responseHeaders, body: raw });
+            else if (!responseWithinLimit(decoded, options.maxBytes || API_RESPONSE_MAX_BYTES)) reject(new Error('Decoded upstream API response too large'));
             else resolve({ status: statusCode, headers: responseHeaders, body: decoded });
           });
         } else {
@@ -632,15 +718,45 @@ async function httpsRequest(url, options = {}) {
 
 function httpsImageRequestOnce(options) {
   return new Promise((resolve, reject) => {
+    let settled = false;
     const req = https.request(options, (r) => {
       const chunks = [];
-      r.on('data', chunk => chunks.push(chunk));
+      let totalBytes = 0;
+      r.on('data', chunk => {
+        if (settled) return;
+        totalBytes += chunk.length;
+        if (!enforceResponseLimit(totalBytes, options.maxBytes || IMAGE_RESPONSE_MAX_BYTES)) {
+          settled = true;
+          reject(new Error('Upstream image response too large'));
+          req.destroy(new Error('Upstream image response too large'));
+          return;
+        }
+        chunks.push(chunk);
+      });
       r.on('end', () => {
+        if (settled) return;
+        settled = true;
         resolve({ status: r.statusCode, headers: r.headers, buffer: Buffer.concat(chunks) });
       });
+      r.on('error', (err) => {
+        if (settled) return;
+        settled = true;
+        req.destroy();
+        reject(err);
+      });
     });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(new Error('Image request timeout')); });
+    req.setTimeout(options.timeout || FETCH_TIMEOUT_MS, () => {
+      if (settled) return;
+      settled = true;
+      METRICS.errors.timeout++;
+      req.destroy();
+      reject(new Error('Image request timeout'));
+    });
+    req.on('error', (err) => {
+      if (settled) return;
+      settled = true;
+      reject(err);
+    });
     req.end();
   });
 }
@@ -665,6 +781,7 @@ async function httpsImageRequest(options) {
 
 // ============== 磁盘缓存 ==============
 let diskCacheCleanupRunning = false;
+let diskWriteCounter = 0;
 
 async function getDirSize(dir) {
   let total = 0;
@@ -730,6 +847,12 @@ function cleanupCacheIfNeeded() {
   diskCacheCleanupRunning = true;
   setImmediate(async () => {
     try {
+      // 快速路径：若快照仍新鲜且明显低于阈值，跳过全量扫描
+      const snapshotFresh = diskCacheBytesSnapshotAt
+        && (Date.now() - diskCacheBytesSnapshotAt) < DISK_CACHE_SIZE_TTL_MS;
+      if (snapshotFresh && diskCacheBytesSnapshot < IMAGE_DISK_CACHE_MAX_BYTES * 0.9) {
+        return;
+      }
       const total = await getDirSize(IMAGE_DISK_CACHE_DIR);
       if (total > IMAGE_DISK_CACHE_MAX_BYTES) {
         const files = await collectFiles(IMAGE_DISK_CACHE_DIR);
@@ -772,11 +895,16 @@ function getApiKey(req, query) {
   return (process.env.TMDB_API_KEY || req.headers['x-api-key'] || query.api_key || query.key || '').trim();
 }
 
-function getApiCacheKey(pathname, query) {
+function getApiCacheKey(pathname, query, apiKey = '') {
   const entries = Object.entries(query)
     .filter(([key]) => key !== 'api_key' && key !== 'key')
     .sort(([a], [b]) => a.localeCompare(b));
-  return `${pathname}:${JSON.stringify(entries)}`;
+  const serverApiKey = (process.env.TMDB_API_KEY || '').trim();
+  const clientApiKey = String(apiKey || query.api_key || query.key || '').trim();
+  const keyScope = serverApiKey || !clientApiKey
+    ? ''
+    : `:clientKey:${crypto.createHash('sha256').update(clientApiKey).digest('hex').slice(0, 16)}`;
+  return `${pathname}:${JSON.stringify(entries)}${keyScope}`;
 }
 
 function checkAdminKey(req, query) {
@@ -808,6 +936,17 @@ async function handleImage(req, res, pathname) {
   if (!securityCheck(req)) return send404(res);
   if (!isSafeImagePath(pathname)) return send404(res);
 
+  if (isImageRateLimited(req)) {
+    const retryAfter = Math.ceil(IMAGE_RATE_LIMIT_WINDOW_MS / 1000);
+    res.writeHead(429, {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Retry-After': String(retryAfter),
+      ...corsHeaders(req)
+    });
+    res.end('Too Many Requests');
+    return 'MISS';
+  }
+
   let cacheStatus = 'MISS';
 
   // 1. 检查内存缓存
@@ -820,7 +959,7 @@ async function handleImage(req, res, pathname) {
       res.writeHead(304, {
         'ETag': etag,
         'Cache-Control': `public, max-age=${IMAGE_CACHE_TTL}, immutable`,
-        'Access-Control-Allow-Origin': '*'
+        ...corsHeaders(req)
       });
       res.end();
       return cacheStatus;
@@ -832,7 +971,7 @@ async function handleImage(req, res, pathname) {
       'Cache-Control': `public, max-age=${IMAGE_CACHE_TTL}, immutable`,
       'ETag': etag,
       'X-Cache': 'MEM-HIT',
-      'Access-Control-Allow-Origin': '*'
+      ...corsHeaders(req)
     });
     res.end(memCached.buffer);
     return cacheStatus;
@@ -854,7 +993,7 @@ async function handleImage(req, res, pathname) {
         res.writeHead(304, {
           'ETag': etag,
           'Cache-Control': `public, max-age=${IMAGE_CACHE_TTL}, immutable`,
-          'Access-Control-Allow-Origin': '*'
+          ...corsHeaders(req)
         });
         res.end();
         return cacheStatus;
@@ -866,7 +1005,7 @@ async function handleImage(req, res, pathname) {
         'Cache-Control': `public, max-age=${IMAGE_CACHE_TTL}, immutable`,
         'ETag': etag,
         'X-Cache': 'DISK-HIT',
-        'Access-Control-Allow-Origin': '*'
+        ...corsHeaders(req)
       });
       res.end(buffer);
       return cacheStatus;
@@ -875,7 +1014,7 @@ async function handleImage(req, res, pathname) {
 
   // 3. 从上游获取（带请求合并）
   try {
-    const upstream = await fetchWithDedup(pathname, async () => {
+    const { result: upstream, deduped } = await fetchWithDedup(pathname, async () => {
       const urlObj = new URL(`https://image.tmdb.org${pathname}`);
       const reqOptions = {
         hostname: urlObj.hostname,
@@ -895,6 +1034,7 @@ async function handleImage(req, res, pathname) {
       return cacheStatus;
     }
 
+    cacheStatus = deduped ? 'DEDUP-HIT' : 'MISS';
     const contentType = upstream.headers['content-type'] || 'image/jpeg';
     const etag = generateETag(upstream.buffer);
 
@@ -905,18 +1045,20 @@ async function handleImage(req, res, pathname) {
       'Content-Length': upstream.buffer.length,
       'Cache-Control': `public, max-age=${IMAGE_CACHE_TTL}, immutable`,
       'ETag': etag,
-      'X-Cache': 'MISS',
-      'Access-Control-Allow-Origin': '*'
+      'X-Cache': deduped ? 'DEDUP-HIT' : 'MISS',
+      ...corsHeaders(req)
     });
     res.end(upstream.buffer);
 
-    // 异步写入磁盘缓存
+    // 异步写入磁盘缓存（先写临时文件再 rename，保证原子性）
     if (IMAGE_DISK_CACHE_ENABLED) {
       const cacheFile = getCacheFilePath(pathname);
+      const tmpFile = `${cacheFile}.${process.pid}.${(diskWriteCounter = (diskWriteCounter + 1) >>> 0)}.${crypto.randomBytes(6).toString('hex')}.tmp`;
       ensureDir(path.dirname(cacheFile))
-        .then(() => fs.promises.writeFile(cacheFile, upstream.buffer))
+        .then(() => fs.promises.writeFile(tmpFile, upstream.buffer))
+        .then(() => fs.promises.rename(tmpFile, cacheFile))
         .then(cleanupCacheIfNeeded)
-        .catch(() => {});
+        .catch(() => { fs.promises.unlink(tmpFile).catch(() => {}); });
     }
   } catch (err) {
     console.error('Image proxy error:', err.message);
@@ -931,7 +1073,7 @@ async function handleAPI(req, res, pathname, query) {
   const apiKey = getApiKey(req, query);
   if (!apiKey) { send404(res); return 'MISS'; }
 
-  const cacheKey = getApiCacheKey(pathname, query);
+  const cacheKey = getApiCacheKey(pathname, query, apiKey);
 
   let cacheTTL = API_CACHE_TTL;
   if (pathname.includes('configuration')) cacheTTL = 3600;
@@ -947,8 +1089,23 @@ async function handleAPI(req, res, pathname, query) {
 
   const params = new URLSearchParams(query);
   params.set('api_key', apiKey);
-  // 还原逗号，TMDB API 需要原始逗号分隔
-  const apiUrl = `https://api.tmdb.org${pathname}?${params.toString().replace(/%2C/gi, ',')}`;
+  // 仅对 TMDB 中确实使用逗号分隔列表的参数还原逗号，
+  // 避免误伤查询值本身含逗号的参数（如 query/标题）
+  const COMMA_LIST_PARAMS = new Set([
+    'append_to_response', 'with_genres', 'without_genres',
+    'with_companies', 'without_companies', 'with_keywords', 'without_keywords',
+    'with_people', 'with_cast', 'with_crew', 'with_watch_providers',
+    'with_watch_monetization_types', 'with_release_type', 'with_origin_country'
+  ]);
+  const queryString = Array.from(params.entries()).map(([key, value]) => {
+    const encodedKey = encodeURIComponent(key);
+    let encodedValue = encodeURIComponent(value);
+    if (COMMA_LIST_PARAMS.has(key)) {
+      encodedValue = encodedValue.replace(/%2C/gi, ',');
+    }
+    return `${encodedKey}=${encodedValue}`;
+  }).join('&');
+  const apiUrl = `https://api.tmdb.org${pathname}?${queryString}`;
 
   try {
     const upstream = await httpsRequest(apiUrl, { headers: { 'Accept': 'application/json' } });
@@ -986,6 +1143,10 @@ async function handleAPI(req, res, pathname, query) {
       }
 
       if (decoded) {
+        if (!responseWithinLimit(decoded, API_RESPONSE_MAX_BYTES)) {
+          sendJSONCompressed(req, res, 502, { error: 'Decoded response from TMDB is too large' });
+          return 'MISS';
+        }
         text = decoded.toString('utf8');
         if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
         try { data = JSON.parse(text); } catch (e3) {
@@ -1173,6 +1334,8 @@ async function handleAdminClearCache(req, res, query) {
     result.api_cleared = apiCache.size;
     apiCache.clear();
     apiCacheExpiry.clear();
+    apiCacheSizes.clear();
+    apiCacheBytes = 0;
   }
 
   if (type === 'mem' || type === 'all') {
@@ -1220,7 +1383,7 @@ const server = http.createServer(async (req, res) => {
       return res.end();
     }
     res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
+      ...corsHeaders(req),
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, X-API-Key, X-Admin-Key',
       'Access-Control-Max-Age': '86400'
@@ -1293,8 +1456,7 @@ const apiCacheGcTimer = setInterval(() => {
   let cleaned = 0;
   for (const [k, exp] of apiCacheExpiry) {
     if (exp < now) {
-      apiCache.delete(k);
-      apiCacheExpiry.delete(k);
+      apiCacheDelete(k);
       cleaned++;
     }
   }
@@ -1365,6 +1527,10 @@ module.exports = {
     getDiskCacheBytes,
     shouldRecordRequest,
     isLocalOrPrivateIP,
-    hasForwardedClientIP
+    hasForwardedClientIP,
+    getClientIP,
+    resolveCorsOrigin,
+    corsHeaders,
+    enforceResponseLimit
   }
 };

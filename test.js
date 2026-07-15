@@ -7,6 +7,7 @@ process.env.IMAGE_DISK_CACHE_DIR = path.join(__dirname, 'cache-test');
 process.env.IMAGE_DISK_CACHE_ENABLED = 'false';
 process.env.TMDB_API_KEY = 'server-key';
 process.env.ADMIN_API_KEY = 'admin-secret';
+process.env.CORS_ALLOW_ORIGIN = 'https://allowed.example';
 
 const { server, shutdown, _internals } = require('./server');
 
@@ -61,6 +62,16 @@ assert.strictEqual(
   _internals.getApiCacheKey('/3/search/movie', { query: 'a', page: '1', api_key: 'client-a' }),
   _internals.getApiCacheKey('/3/search/movie', { api_key: 'client-b', page: '1', query: 'a' })
 );
+process.env.TMDB_API_KEY = '';
+assert.notStrictEqual(
+  _internals.getApiCacheKey('/3/search/movie', { query: 'a', page: '1', api_key: 'client-a' }),
+  _internals.getApiCacheKey('/3/search/movie', { api_key: 'client-b', page: '1', query: 'a' })
+);
+assert.notStrictEqual(
+  _internals.getApiCacheKey('/3/search/movie', { query: 'a', page: '1' }, 'client-a'),
+  _internals.getApiCacheKey('/3/search/movie', { query: 'a', page: '1' }, 'client-b')
+);
+process.env.TMDB_API_KEY = 'server-key';
 assert.notStrictEqual(
   _internals.getApiCacheKey('/3/search/movie', { query: 'a', page: '1' }),
   _internals.getApiCacheKey('/3/search/movie', { query: 'b', page: '1' })
@@ -137,11 +148,29 @@ assert.strictEqual(_internals.isLocalOrPrivateIP('127.0.0.1'), true);
 assert.strictEqual(_internals.isLocalOrPrivateIP('172.23.0.1'), true);
 assert.strictEqual(_internals.isLocalOrPrivateIP('8.8.8.8'), false);
 assert.strictEqual(_internals.hasForwardedClientIP(forwardedReq), true);
+assert.strictEqual(_internals.getClientIP(forwardedReq), '172.23.0.1');
+process.env.TRUST_PROXY = 'true';
+assert.strictEqual(_internals.getClientIP(forwardedReq), '8.8.8.8');
+assert.strictEqual(_internals.getClientIP(realIpReq), '8.8.4.4');
+process.env.TRUST_PROXY = 'false';
 assert.strictEqual(_internals.shouldRecordRequest(localReq, '/health', 'other'), false);
 assert.strictEqual(_internals.shouldRecordRequest(localReq, '/t/p/w500/a.jpg', 'image'), false);
 assert.strictEqual(_internals.shouldRecordRequest(dockerReq, '/3/movie/1', 'api'), false);
+assert.strictEqual(_internals.shouldRecordRequest(forwardedReq, '/t/p/w500/a.jpg', 'image'), false);
+assert.strictEqual(_internals.shouldRecordRequest(realIpReq, '/3/movie/1', 'api'), false);
+process.env.TRUST_PROXY = 'true';
 assert.strictEqual(_internals.shouldRecordRequest(forwardedReq, '/t/p/w500/a.jpg', 'image'), true);
 assert.strictEqual(_internals.shouldRecordRequest(realIpReq, '/3/movie/1', 'api'), true);
+process.env.TRUST_PROXY = 'false';
+
+assert.strictEqual(_internals.resolveCorsOrigin({ headers: { origin: 'https://allowed.example' } }), 'https://allowed.example');
+assert.strictEqual(_internals.resolveCorsOrigin({ headers: { origin: 'https://blocked.example' } }), null);
+const corsHeaders = _internals.corsHeaders({ headers: { origin: 'https://allowed.example' } });
+assert.strictEqual(corsHeaders['Access-Control-Allow-Origin'], 'https://allowed.example');
+assert.strictEqual(corsHeaders.Vary, 'Origin');
+assert.deepStrictEqual(_internals.corsHeaders({ headers: { origin: 'https://blocked.example' } }), { Vary: 'Origin' });
+assert.strictEqual(_internals.enforceResponseLimit(4, 3, 'api'), false);
+assert.strictEqual(_internals.enforceResponseLimit(4, 4, 'api'), true);
 
 (async () => {
   const diskTestDir = path.join(__dirname, 'cache-test-files');
@@ -216,6 +245,7 @@ assert.strictEqual(_internals.shouldRecordRequest(realIpReq, '/3/movie/1', 'api'
       'Sec-Fetch-Site': 'same-origin',
       'X-Forwarded-For': '203.0.113.10'
     };
+    process.env.TRUST_PROXY = 'true';
     for (let i = 0; i < 5; i++) {
       const failedAuth = await requestAdmin(port, 'POST', '/admin/auth', badAuthHeaders, JSON.stringify({ admin_key: `bad-${i}` }));
       assert.strictEqual(failedAuth.status, 401);
@@ -233,6 +263,7 @@ assert.strictEqual(_internals.shouldRecordRequest(realIpReq, '/3/movie/1', 'api'
     }, JSON.stringify({ admin_key: 'admin-secret' }));
     assert.strictEqual(goodAuth.status, 200);
     assert.ok(!goodAuth.headers['access-control-allow-origin']);
+    process.env.TRUST_PROXY = 'false';
   } finally {
     await new Promise(resolve => server.close(resolve));
     shutdown();
