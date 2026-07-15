@@ -1,63 +1,33 @@
 # TMDB Proxy
 
-一个简单的 TMDB 代理服务，支持：
+轻量 TMDB 代理服务，适合自部署给 MoviePilot、媒体库或个人项目使用。
+
+支持：
 
 - TMDB API 代理：`/3/...`
 - TMDB 图片代理：`/t/p/...`
-- 图片缓存和 API 缓存
+- API 缓存、图片内存缓存、图片磁盘缓存
 - 管理面板：`/admin/dashboard`
 - Docker / Docker Compose 部署
+- `linux/amd64` 和 `linux/arm64` 多架构镜像
 
-## 界面预览
+## 管理面板
 
-管理面板采用极简电影控制台设计，首页只显示服务状态、请求量、缓存命中率、实时速率和错误率。缓存容量、状态码与访问日志收纳在右侧详情抽屉中。
+管理面板只展示运行状态、请求量、命中率、错误率、缓存占用和最近访问日志。
 
-内置三种面板风格，可在详情抽屉中的“风格”按钮切换，并保存在浏览器本地：
+内置三种风格，可在面板内切换：
 
-- `Aurora Glass`：暗色玻璃拟态，适合作为默认监控面板。
-- `Terminal`：绿色终端风，适合运维场景。
-- `Swiss Editorial`：浅色瑞士排版风，适合白底后台环境。
+- `Aurora Glass`：暗色玻璃拟态
+- `Terminal`：终端运维风
+- `Swiss Editorial`：浅色排版风
 
-### 桌面端
+截图示例：
 
 ![TMDB Proxy 桌面端管理面板](docs/images/admin-dashboard-desktop.webp)
 
-### 手机端与详情抽屉
+> 背景图片由面板通过 TMDB 随机背景接口加载，实际显示内容会变化。截图不包含真实密钥、Cookie 或访问日志。
 
-<table>
-  <tr>
-    <td width="34%" align="center"><strong>手机端</strong></td>
-    <td width="66%" align="center"><strong>详细监控</strong></td>
-  </tr>
-  <tr>
-    <td valign="top"><img src="docs/images/admin-dashboard-mobile.webp" alt="TMDB Proxy 手机端管理面板"></td>
-    <td valign="top"><img src="docs/images/admin-dashboard-details.webp" alt="TMDB Proxy 详细监控抽屉"></td>
-  </tr>
-</table>
-
-> 背景图片由管理面板通过 TMDB 随机背景接口加载，因此实际显示内容会变化。截图使用本地测试环境，未包含真实密钥、Cookie 或访问日志。
-
-## 镜像和架构
-
-镜像同时支持：
-
-- `linux/amd64`：常见 Intel / AMD 服务器
-- `linux/arm64`：ARM64 服务器、树莓派 64 位等
-
-两种架构使用同一个镜像地址，Docker 会自动选择：
-
-```bash
-ghcr.io/qqcomeup/tmdb-proxy:latest
-```
-
-## 最简单部署
-
-下面两种部署方式二选一：
-
-- 直接把密钥写入 `docker-compose.yml` 时，不需要 `.env`。
-- 使用仓库自带 `docker-compose.yml` 时，把密钥写入 `.env`。
-
-### 方式一：直接写 docker-compose.yml
+## 快速开始
 
 新建目录：
 
@@ -92,39 +62,60 @@ volumes:
 docker compose up -d
 ```
 
-本机访问：
+访问：
 
 ```text
 http://127.0.0.1:54321/health
 http://127.0.0.1:54321/admin/dashboard
 ```
 
-如果只允许本机反代访问，保持：
+普通部署只需要填写两个变量：
+
+- `TMDB_API_KEY`
+- `ADMIN_API_KEY`
+
+缓存容量、超时、重试、响应大小限制都有内置默认值。
+
+## 反向代理
+
+默认只绑定本机：
 
 ```yaml
 ports:
   - "127.0.0.1:54321:54321"
 ```
 
-如果需要直接外网访问，改成：
+推荐通过 Nginx、Caddy、Traefik 等反向代理对外提供 HTTPS。
+
+HTTPS 反代时建议加：
 
 ```yaml
-ports:
-  - "54321:54321"
+environment:
+  - TMDB_API_KEY=你的_TMDB_API_KEY
+  - ADMIN_API_KEY=你的管理密码
+  - COOKIE_SECURE=true
 ```
 
-然后访问：
+如果还希望访问日志和限流使用真实客户端 IP，而不是反向代理 IP，再加：
 
-```text
-http://服务器IP:54321/health
-http://服务器IP:54321/admin/dashboard
+```yaml
+  - TRUST_PROXY=true
 ```
 
-缓存容量、超时、重试、响应大小限制都有内置默认值；普通部署只需要填写 `TMDB_API_KEY` 和 `ADMIN_API_KEY`。
+仅在服务只接受可信反向代理转发时开启 `TRUST_PROXY`；直接公网暴露时保持默认 `false`。
 
-### 方式二：使用仓库自带 Compose + .env
+Nginx 示例头：
 
-克隆仓库：
+```nginx
+proxy_set_header Host $host;
+proxy_set_header X-Real-IP $remote_addr;
+proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+proxy_set_header X-Forwarded-Proto $scheme;
+```
+
+## 使用仓库 Compose + .env
+
+也可以直接使用仓库自带 Compose：
 
 ```bash
 git clone https://github.com/qqcomeup/tmdb-proxy.git
@@ -145,100 +136,37 @@ ADMIN_API_KEY=你的管理密码
 docker compose --env-file .env up -d
 ```
 
-## HTTP / HTTPS Cookie 设置
-
-- 通过 HTTPS 域名访问管理面板：使用 `COOKIE_SECURE=true`。
-- 直接通过 `http://服务器IP:端口` 访问：使用 `COOKIE_SECURE=false`，否则浏览器不会保存管理登录 Cookie。
-
-直接通过 HTTP IP 访问时，请在 `.env` 或 `docker-compose.yml` 中设置：
-
-```env
-COOKIE_SECURE=false
-```
-
-使用 HTTPS 反向代理时设置：
-
-```env
-COOKIE_SECURE=true
-```
-
-如果希望访问日志和限流使用真实客户端 IP，而不是反向代理 IP，再开启：
-
-```env
-TRUST_PROXY=true
-```
-
-仅在你的服务确实只接受可信反向代理转发时开启 `TRUST_PROXY`；直接公网暴露时保持默认 `false`。
-
 ## 常用接口
-
-健康检查：
 
 ```text
 /health
 /ping
-```
-
-TMDB API 代理：
-
-```text
+/admin/dashboard
 /3/movie/popular?api_key=你的_TMDB_API_KEY&language=zh-CN
-```
-
-图片代理：
-
-```text
 /t/p/w500/图片路径
 ```
 
-管理面板：
+## 默认值
 
-```text
-/admin/dashboard
-```
+这些默认值已经内置，通常不需要配置：
 
-## 环境变量
-
-必填变量：
-
-| 变量 | 说明 |
+| 项目 | 默认值 |
 | --- | --- |
-| `TMDB_API_KEY` | TMDB API Key |
-| `ADMIN_API_KEY` | 管理面板密钥 |
+| 容器内监听端口 | `54321` |
+| Compose 对外发布端口，容器内固定监听 `54321` | `54321` |
+| 图片磁盘缓存 | `1 GB` |
+| 图片内存缓存 | `100 MB` |
+| API 缓存条目 | `2000` |
+| API 缓存内存估算 | `50 MB` |
+| API 缓存 TTL | `600 秒` |
+| 图片缓存 TTL | `7 天` |
+| API 单次响应上限 | `5 MB` |
+| 图片单次响应上限 | `20 MB` |
+| TMDB 请求超时 | `15000 ms` |
+| API 请求重试 | `2 次` |
+| 图片请求重试 | `1 次` |
 
-常用变量：
-
-| 变量 | 默认值 | 说明 |
-| --- | --- | --- |
-| `BIND_ADDRESS` | `127.0.0.1` | Compose 对外绑定地址 |
-| `PORT` | `54321` | Compose 对外发布端口，容器内固定监听 `54321` |
-| `COOKIE_SECURE` | `true` | 是否只通过 HTTPS 发送管理登录 Cookie |
-| `FETCH_TIMEOUT_MS` | `15000` | TMDB 请求超时时间（毫秒） |
-| `API_RESPONSE_MAX_MB` | `5` | TMDB API 单次响应最大体积（MB），超限会中断请求 |
-| `IMAGE_RESPONSE_MAX_MB` | `20` | TMDB 图片单次响应最大体积（MB），超限会中断请求 |
-| `API_RETRY_COUNT` | `2` | TMDB API 请求重试次数 |
-| `IMAGE_RETRY_COUNT` | `1` | 图片请求重试次数 |
-| `RETRY_DELAY_MS` | `150` | 重试间隔（毫秒） |
-| `TRUST_PROXY` | `false` | 是否信任反向代理提供的 `X-Forwarded-For` / `X-Real-IP`。直接公网暴露时保持 `false` |
-| `CORS_ALLOW_ORIGIN` | `*` | CORS 允许来源。可设置为逗号分隔白名单 |
-| `API_CACHE_MAX_ITEMS` | `2000` | API 缓存最大条目数 |
-| `API_CACHE_MAX_MB` | `50` | API 缓存最大内存占用估算值（MB） |
-| `API_CACHE_TTL` | `600` | API 缓存秒数 |
-| `IMAGE_CACHE_TTL` | `604800` | 图片缓存秒数 |
-| `IMAGE_DISK_CACHE_ENABLED` | `true` | 是否启用图片磁盘缓存 |
-| `IMAGE_DISK_CACHE_DIR` | `/tmp/tmdb-cache` | 图片缓存目录 |
-| `IMAGE_DISK_CACHE_MAX_GB` | `1` | 图片磁盘缓存最大容量（GB） |
-| `IMAGE_MEM_CACHE_MAX_MB` | `100` | 图片内存缓存最大容量（MB） |
-
-资源限制变量：
-
-| 变量 | 默认值 | 说明 |
-| --- | --- | --- |
-| `CONTAINER_MEM_LIMIT` | `512m` | 容器内存上限 |
-| `CONTAINER_MEM_RESERVATION` | `256m` | 容器内存预留 |
-| `pids_limit` | `256` | Compose 中的进程数上限 |
-
-其他可选变量可参考 `.env.example`，例如 `DISK_CACHE_CLEANUP_INTERVAL_MS`。
+需要调整时再参考 `.env.example`。
 
 ## 更新
 
@@ -249,21 +177,8 @@ docker compose up -d
 
 ## 本地源码运行和测试
 
-启动开发服务：
-
 ```bash
 npm start
-```
-
-默认监听：
-
-```text
-0.0.0.0:54321
-```
-
-源码检查和测试：
-
-```bash
 npm run check
 npm test
 npm run validate:release
