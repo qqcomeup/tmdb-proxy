@@ -600,6 +600,12 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
         const bgMode = ref((localStorage.getItem(BG_MODE_KEY) === 'tmdb') ? 'tmdb' : 'night');
         const nightWallIndex = ref(Number(localStorage.getItem(NIGHT_WALL_KEY) || 0) || 0);
         const logBox = ref(null);
+        const bootingMetrics = ref(true);
+        const display = reactive({ total: 0, hitRate: '-', rps: '-', errorRate: '-' });
+        const selectedLog = ref(null);
+        const selectedLogKey = ref('');
+        const animTimers = Object.create(null);
+        let lastLogSig = '';
         const rpsText = ref('-');
         const errorRateText = ref('-');
         const errRateNote = ref('请求数: 0');
@@ -639,6 +645,18 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
         const memCountText = computed(() => memCache.max_bytes ? ('缓存图片: ' + (memCache.size || 0) + ' 张') : '');
         const imgCacheChips = computed(() => ['MEM ' + formatNumber(metrics.image.mem_hit || 0), 'DISK ' + formatNumber(metrics.image.disk_hit || 0), 'MISS ' + formatNumber(metrics.image.miss || 0)]);
         const apiCacheChips = computed(() => ['HIT ' + formatNumber(metrics.api.hit || 0), 'MISS ' + formatNumber(metrics.api.miss || 0)]);
+        const imgHitPct = computed(() => {
+          const hit = (metrics.image.mem_hit || 0) + (metrics.image.disk_hit || 0);
+          const miss = metrics.image.miss || 0;
+          const total = hit + miss;
+          return total ? Math.round((hit / total) * 100) : 0;
+        });
+        const apiHitPct = computed(() => {
+          const hit = metrics.api.hit || 0;
+          const miss = metrics.api.miss || 0;
+          const total = hit + miss;
+          return total ? Math.round((hit / total) * 100) : 0;
+        });
         const filteredLogs = computed(() => {
           const filter = LOG_FILTERS[currentLogFilter.value] || LOG_FILTERS.all;
           return (latestLogRows.value || []).filter(filter.test).slice(-200);
