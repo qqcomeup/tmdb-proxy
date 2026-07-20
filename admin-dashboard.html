@@ -82,9 +82,13 @@
 .metric-alert{display:none;margin:0 0 12px;padding:10px 12px;border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);background:color-mix(in srgb,var(--warn) 12%,transparent);color:var(--warn);font-family:var(--mono);font-size:12px}
 .drawer-actions{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}.drawer-metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}.drawer-card{padding:12px;border:1px solid color-mix(in srgb,var(--pink) 25%,transparent);background:rgba(0,0,0,.28)}
 .log-toolbar{display:flex;justify-content:space-between;gap:10px;margin-bottom:8px}.log-filters{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
-.log-entry{display:grid;grid-template-columns:74px 52px 64px 72px minmax(0,1fr) 58px 64px;gap:6px 8px;align-items:center;padding:8px 8px;border-bottom:1px solid rgba(255,255,255,.05);border-left:2px solid transparent;cursor:pointer}
+.log-entry{display:grid;grid-template-columns:74px 52px 64px 72px minmax(0,1fr) 58px 64px 56px;gap:6px 8px;align-items:center;padding:8px 8px;border-bottom:1px solid rgba(255,255,255,.05);border-left:2px solid transparent;cursor:default}
 .log-entry:hover{background:rgba(255,255,255,.04)}
 .log-entry.copied{background:color-mix(in srgb,var(--ok) 16%,transparent);outline:1px solid color-mix(in srgb,var(--ok) 45%,transparent)}
+.log-copy{appearance:none;border:1px solid color-mix(in srgb,var(--cyan) 45%,transparent);background:color-mix(in srgb,var(--cyan) 12%,transparent);color:var(--cyan);font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.04em;padding:4px 6px;min-height:28px;cursor:pointer;white-space:nowrap}
+.log-copy:hover{border-color:var(--cyan);background:color-mix(in srgb,var(--cyan) 22%,transparent)}
+.log-copy.ok{border-color:color-mix(in srgb,var(--ok) 55%,transparent);color:var(--ok);background:color-mix(in srgb,var(--ok) 14%,transparent)}
+.log-copy-toast{position:fixed;z-index:50;left:50%;bottom:88px;transform:translateX(-50%);padding:10px 14px;border:1px solid color-mix(in srgb,var(--ok) 50%,transparent);background:rgba(0,12,8,.92);color:var(--ok);font-family:var(--mono);font-size:12px;letter-spacing:.06em;box-shadow:0 10px 30px rgba(0,0,0,.35);pointer-events:none}
 .log-entry.active{background:color-mix(in srgb,var(--pink) 14%,transparent);outline:1px solid color-mix(in srgb,var(--pink) 45%,transparent);border-left-color:var(--pink)}
 .log-entry.error{border-left-color:var(--bad)}
 .log-entry.slow{border-left-color:var(--yellow)}
@@ -107,7 +111,7 @@
 .log-detail .pill-row{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
 .log-detail .path-block{margin:0 0 12px;padding:10px;border:1px solid color-mix(in srgb,var(--cyan) 22%,transparent);background:rgba(0,0,0,.25);word-break:break-all;font-family:var(--mono);font-size:12px;color:#e8fff4}
 @media (max-width:1100px){
-  .log-entry{grid-template-columns:64px 48px 56px minmax(0,1fr) 52px; }
+  .log-entry{grid-template-columns:64px 48px 56px minmax(0,1fr) 52px 52px; }
   .log-entry .log-bytes,.log-entry .log-pill.type{display:none}
 }
 @media (max-width:1100px){.zone-grid.traffic{grid-template-columns:1fr 1fr}.zone-grid.cache,.zone-grid.system{grid-template-columns:1fr 1fr}.drawer-metrics{grid-template-columns:1fr}}
@@ -510,7 +514,7 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
             <div class="drawer-card"><label>内存缓存</label><value style="font-size:20px">{{ memUsageText }}</value><div class="meter"><div class="meter-fill cyan" :style="{width:memPct+'%'}"></div></div></div>
           </div>
           <div class="log-panel">
-            <div class="log-toolbar"><div><label>最近访问日志 · 最新 30 条 · 点击复制 path</label></div><span id="v_log_filter_info" class="pill">{{ logFilterInfo }}</span></div>
+            <div class="log-toolbar"><div><label>最近访问日志 · 最新 30 条 · 点「复制」复制完整 path</label></div><span id="v_log_filter_info" class="pill">{{ logFilterInfo }}</span></div>
             <div class="log-filters" role="group" aria-label="日志筛选">
               <button class="chip-btn log-filter" :class="{active:currentLogFilter==='all'}" data-filter="all" type="button" @click="currentLogFilter='all'">全部</button>
               <button class="chip-btn log-filter" :class="{active:currentLogFilter==='5xx'}" data-filter="5xx" type="button" @click="currentLogFilter='5xx'">5xx错误</button>
@@ -522,10 +526,10 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
               <button class="chip-btn log-filter" :class="{active:currentLogFilter==='image'}" data-filter="image" type="button" @click="currentLogFilter='image'">只看图片</button>
             </div>
             <div id="v_logs" class="logs log-list vlog-window" aria-live="polite" ref="logBox" @scroll="onLogScroll">
-                <div v-if="!filteredLogs.length" class="log-empty">{{ latestLogRows.length ? '当前筛选无匹配日志' : '暂无访问日志 · 有请求后这里会滚动更新（显示最新 30 条，点击行复制完整 path）' }}</div>
+                <div v-if="!filteredLogs.length" class="log-empty">{{ latestLogRows.length ? '当前筛选无匹配日志' : '暂无访问日志 · 有请求后这里会滚动更新（显示最新 30 条，点右侧「复制」复制完整 path）' }}</div>
                 <div v-else class="vlog-spacer" :style="{height: virtualTotalH + 'px'}">
                   <div class="vlog-view" :style="{transform: 'translateY(' + virtualOffset + 'px)'}">
-                    <div v-for="item in virtualLogs" :key="item.key" class="log-entry" :class="{error:Number(item.l.status)>=400, slow:Number(item.l.durationMs)>=1000, copied: copiedLogKey===item.key}" :title="logRowTitle(item.l)" @click="copyLogPath(item.l, item.key)">
+                    <div v-for="item in virtualLogs" :key="item.key" class="log-entry" :class="{error:Number(item.l.status)>=400, slow:Number(item.l.durationMs)>=1000, copied: copiedLogKey===item.key}" :title="logRowTitle(item.l)">
                       <div class="log-time">{{ formatLogTime(item.l.time) }}</div>
                       <div class="log-pill" :class="classifyStatus(item.l.status)">{{ item.l.status || '-' }}</div>
                       <div class="log-pill type">{{ formatLogType(item.l.type) }}</div>
@@ -533,11 +537,13 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
                       <div class="log-path"><span class="method">{{ item.l.method || '-' }}</span>{{ shortPath(item.l.path) }}</div>
                       <div class="log-ms" :class="{slow:Number(item.l.durationMs)>=1000}">{{ formatDuration(item.l.durationMs) }}</div>
                       <div class="log-bytes">{{ formatBytes(item.l.bytes)/* formatBytes(l.bytes) */ }}</div>
+                      <button type="button" class="log-copy" :class="{ok: copiedLogKey===item.key}" :title="'复制完整 path\n' + (item.l.path || '')" @click.stop="copyLogPath(item.l, item.key)">{{ copiedLogKey===item.key ? '已复制' : '复制' }}</button>
                     </div>
                   </div>
                 </div>
               </div>
           </div>
+          <div v-if="copyToastText" class="log-copy-toast" role="status" aria-live="polite">{{ copyToastText }}</div>
         </aside>
       </section>
     </main>
@@ -675,6 +681,7 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
         })());
         const logScrollTop = ref(0);
         const copiedLogKey = ref('');
+        const copyToastText = ref('');
         let copiedTimer = null;
         const LOG_ROW_H = 44;
         const LOG_OVERSCAN = 10;
@@ -840,10 +847,16 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
               document.body.removeChild(ta);
             } catch (e) {}
           }
-          if (!ok) return;
+          if (!ok) {
+            copyToastText.value = '复制失败，请手动选择 path';
+            if (copiedTimer) clearTimeout(copiedTimer);
+            copiedTimer = setTimeout(() => { copyToastText.value = ''; }, 1800);
+            return;
+          }
           copiedLogKey.value = key || logKey(l, 0);
+          copyToastText.value = '已复制 path';
           if (copiedTimer) clearTimeout(copiedTimer);
-          copiedTimer = setTimeout(() => { copiedLogKey.value = ''; }, 1200);
+          copiedTimer = setTimeout(() => { copiedLogKey.value = ''; copyToastText.value = ''; }, 1400);
         }
         function setTheme(theme) {
           const found = THEMES.find(([key]) => key === theme) || THEMES[0];
@@ -1146,7 +1159,7 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
           latestLogRows, filteredLogs, currentLogFilter, logFilterInfo, autoScroll, refreshPaused,
           drawerOpen, alertText, clearBusy, clearLabel, themeLabel, bgModeLabel, bgActionLabel, logBox, bootingMetrics, display, selectedLog, selectedLogKey, imgHitPct, apiHitPct,
           alertPct, virtualLogs, virtualOffset, virtualTotalH,
-          fmt, formatTs, formatLogTime, formatDuration, shortPath, logRowTitle, copyLogPath, copiedLogKey, formatBytes, formatLogType, formatCacheLabel, classifyStatus, classifyCache, logKey, selectLog, onLogScroll, persistAlertPct,
+          fmt, formatTs, formatLogTime, formatDuration, shortPath, logRowTitle, copyLogPath, copiedLogKey, copyToastText, formatBytes, formatLogType, formatCacheLabel, classifyStatus, classifyCache, logKey, selectLog, onLogScroll, persistAlertPct,
           login, loadDashboard, changeBg, cycleBgMode, clearCache, togglePause, clearLogs, cycleTheme, setDrawer, logout
         };
       }
