@@ -325,7 +325,7 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
 .ratio-bar i{display:block;height:100%}
 .ratio-bar .hit{background:linear-gradient(90deg,var(--ok),var(--cyan))}
 .ratio-bar .miss{background:linear-gradient(90deg,var(--bad),#ff6b8a)}
-.log-layout{display:grid;grid-template-columns:1.4fr .9fr;gap:10px;min-height:min(70vh,720px)}
+.log-layout{display:block;min-height:min(70vh,720px)}
 .log-list{min-height:0;overflow:auto;border:1px solid color-mix(in srgb,var(--cyan) 20%,transparent);background:rgba(0,8,6,.45)}
 .log-detail{
   min-height:0;overflow:auto;border:1px solid color-mix(in srgb,var(--pink) 25%,transparent);
@@ -339,7 +339,7 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
 .log-entry.active{background:color-mix(in srgb,var(--pink) 14%,transparent);outline:1px solid color-mix(in srgb,var(--pink) 45%,transparent)}
 .log-entry:hover{background:rgba(255,255,255,.03)}
 .value.tick{transition:color .2s}
-.vlog-window{position:relative;overflow:auto;min-height:0;height:100%}
+.vlog-window{position:relative;overflow:auto;min-height:0;height:min(70vh,720px)}
 .vlog-spacer{width:100%;position:relative}
 .vlog-view{position:absolute;left:0;right:0;top:0;will-change:transform}
 .cache-card .chip-row{display:none}
@@ -520,12 +520,11 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
               <button class="chip-btn log-filter" :class="{active:currentLogFilter==='api'}" data-filter="api" type="button" @click="currentLogFilter='api'">只看 API</button>
               <button class="chip-btn log-filter" :class="{active:currentLogFilter==='image'}" data-filter="image" type="button" @click="currentLogFilter='image'">只看图片</button>
             </div>
-            <div class="log-layout">
-              <div id="v_logs" class="logs log-list vlog-window" aria-live="polite" ref="logBox" @scroll="onLogScroll">
+            <div id="v_logs" class="logs log-list vlog-window" aria-live="polite" ref="logBox" @scroll="onLogScroll">
                 <div v-if="!filteredLogs.length" class="log-empty">{{ latestLogRows.length ? '当前筛选无匹配日志' : '暂无访问日志 · 有请求后这里会滚动更新' }}</div>
                 <div v-else class="vlog-spacer" :style="{height: virtualTotalH + 'px'}">
                   <div class="vlog-view" :style="{transform: 'translateY(' + virtualOffset + 'px)'}">
-                    <div v-for="item in virtualLogs" :key="item.key" class="log-entry" :class="{error:Number(item.l.status)>=400, slow:Number(item.l.durationMs)>=1000, active: selectedLogKey===item.key}" @click="selectLog(item.l, item.idx)" :title="(item.l.method||'') + ' ' + (item.l.path||'')">
+                    <div v-for="item in virtualLogs" :key="item.key" class="log-entry" :class="{error:Number(item.l.status)>=400, slow:Number(item.l.durationMs)>=1000}" :title="(item.l.method||'') + ' ' + (item.l.path||'')">
                       <div class="log-time">{{ formatLogTime(item.l.time) }}</div>
                       <div class="log-pill" :class="classifyStatus(item.l.status)">{{ item.l.status || '-' }}</div>
                       <div class="log-pill type" :title="String(item.l.type||'')">{{ formatLogType(item.l.type) }}</div>
@@ -537,29 +536,6 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
                   </div>
                 </div>
               </div>
-              <aside class="log-detail">
-                <h3>条目详情</h3>
-                <template v-if="selectedLog">
-                  <div class="pill-row">
-                    <span class="log-pill" :class="classifyStatus(selectedLog.status)">{{ selectedLog.status || '-' }}</span>
-                    <span class="log-pill type">{{ formatLogType(selectedLog.type) }}</span>
-                    <span class="log-pill" :class="classifyCache(selectedLog.cache)">{{ formatCacheLabel(selectedLog.cache) }}</span>
-                    <span class="log-pill">{{ selectedLog.method || '-' }}</span>
-                  </div>
-                  <div class="path-block" :title="selectedLog.path || ''">{{ selectedLog.path || '-' }}</div>
-                  <dl class="kv">
-                    <dt>时间</dt><dd class="mono">{{ formatTs(selectedLog.time) }}</dd>
-                    <dt>类型</dt><dd>{{ formatLogType(selectedLog.type) }} <span style="color:var(--muted)">({{ selectedLog.type || 'other' }})</span></dd>
-                    <dt>缓存</dt><dd>{{ formatCacheLabel(selectedLog.cache) }} <span style="color:var(--muted)">/ {{ selectedLog.cache || '-' }}</span></dd>
-                    <dt>耗时</dt><dd class="mono">{{ selectedLog.durationMs != null ? selectedLog.durationMs + ' ms' : '-' }}</dd>
-                    <dt>大小</dt><dd class="mono">{{ formatBytes(selectedLog.bytes) }}</dd>
-                    <dt>IP</dt><dd class="mono">{{ selectedLog.ip || '-' }}</dd>
-                    <dt>上游</dt><dd class="mono">{{ selectedLog.upstream || selectedLog.target || selectedLog.host || (String(selectedLog.type||'').startsWith('upstream') ? 'UPSTREAM' : '-') }}</dd>
-                  </dl>
-                </template>
-                <div v-else class="log-empty">点击列表日志查看 path / 缓存 / 字节等详情<div class="empty-hint" style="margin-top:10px">窄屏下详情在列表下方</div></div>
-              </aside>
-            </div>
           </div>
         </aside>
       </section>
@@ -872,10 +848,6 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
           } catch (e) {}
           document.body.classList.toggle('drawer-open', drawerOpen.value);
           if (drawerOpen.value) {
-            if (!selectedLog.value && filteredLogs.value.length) {
-              const last = filteredLogs.value.length - 1;
-              selectLog(filteredLogs.value[last], last);
-            }
             nextTick(() => {
               try {
                 if (autoScroll.value && logBox.value) logBox.value.scrollTop = logBox.value.scrollHeight;
