@@ -1,31 +1,57 @@
 # TMDB Proxy
 
-轻量 TMDB 代理服务，适合自部署给 MoviePilot、媒体库或个人项目使用。
+轻量 **零依赖** TMDB 代理服务，适合自部署给 MoviePilot、媒体库或个人项目使用。
 
 支持：
 
 - TMDB API 代理：`/3/...`
 - TMDB 图片代理：`/t/p/...`
 - API 缓存、图片内存缓存、图片磁盘缓存
-- 管理面板：`/admin/dashboard`
+- 管理面板：`/admin/dashboard`（Vue 3 夜之城 / Night City 风格，单文件 + 本地 vendor）
 - Docker / Docker Compose 部署
 - `linux/amd64` 和 `linux/arm64` 多架构镜像
+- GitHub Actions 自动构建并推送 GHCR 镜像
+
+镜像：
+
+```text
+ghcr.io/qqcomeup/tmdb-proxy:latest
+```
 
 ## 管理面板
 
-管理面板只展示运行状态、请求量、命中率、错误率、缓存占用和最近访问日志。
+登录地址：`/admin/dashboard`，使用环境变量 `ADMIN_API_KEY` 作为管理密钥。
 
-内置三种风格，可在面板内切换：
+面板能力：
 
-- `Aurora Glass`：暗色玻璃拟态
-- `Terminal`：终端运维风
-- `Swiss Editorial`：浅色排版风
+- 运行状态、总请求量、实时 RPS、错误率
+- 图片 / API 缓存矩阵（对等双栏：计数 + 环形命中率 + hit/miss 比例条）
+- 磁盘 / 内存缓存占用与进度条；占用 ≥ 90% 时在顶栏 HUD 固定告警
+- 实时日志抽屉：列表 + 单条详情（path / status / cache / bytes / upstream）
+- 清理缓存、暂停刷新、主题与壁纸切换
+
+视觉与主题：
+
+- 默认 **Night City（夜之城）** 多层动态城市场景，支持鼠标视差
+- 壁纸模式：`夜之城` 自绘动态层 / `TMDB` 随机海报背景（使用 `/t/p/w1280`，避免拉 original）
+- 内置三种可切换风格：
+  - `Aurora Glass`：暗色玻璃拟态
+  - `Terminal`：终端运维风
+  - `Swiss Editorial`：浅色排版风
+- Vue 3 与关键依赖从容器内 `/admin/vendor/*` 提供，内网/离线更稳
+- 遵循 `prefers-reduced-motion`，减弱动画
 
 截图示例：
 
 ![TMDB Proxy 桌面端管理面板](docs/images/admin-dashboard-desktop.webp)
 
-> 背景图片由面板通过 TMDB 随机背景接口加载，实际显示内容会变化。截图不包含真实密钥、Cookie 或访问日志。
+> 背景可为夜之城动态层或 TMDB 随机背景，实际显示会变化。截图不包含真实密钥、Cookie 或访问日志。
+
+### 本机访问注意
+
+- 请通过服务地址打开，例如 `http://127.0.0.1:54321/admin/dashboard`
+- **不要**用浏览器直接打开本地 `admin-dashboard.html`（`file://`），否则 vendor / 接口路径会失效
+- 改完面板后一般只需硬刷新（Ctrl+F5）；修改 `server.js` 或环境变量需要重启进程
 
 ## 快速开始
 
@@ -146,9 +172,16 @@ docker compose --env-file .env up -d
 /health
 /ping
 /admin/dashboard
+/admin/vendor/vue.global.prod.js
 /3/movie/popular?api_key=你的_TMDB_API_KEY&language=zh-CN
 /t/p/w500/图片路径
 ```
+
+说明：
+
+- 管理接口需携带有效管理会话或 `X-Admin-Key`（面板登录后自动处理）
+- 未授权访问部分管理 API 会返回 404，避免暴露管理端点存在性
+- 日志中的 `api_key` 等敏感查询参数会被脱敏
 
 ## 默认值
 
@@ -187,3 +220,9 @@ npm run check
 npm test
 npm run validate:release
 ```
+
+发布前请确认：
+
+- 未把真实 `TMDB_API_KEY` / `ADMIN_API_KEY` 写进仓库
+- Compose 使用环境变量注入密钥
+- 管理面板相关契约测试（`npm test`）通过
