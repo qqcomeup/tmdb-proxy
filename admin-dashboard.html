@@ -1,843 +1,944 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="aurora">
+<html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>TMDB 代理监控面板</title>
+  <title>TMDB 代理 // 2077</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700;800&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet" />
   <script>
-    (function(){
+    (function () {
       try {
-        const theme = localStorage.getItem('tmdb_theme') || 'aurora';
-        document.documentElement.dataset.theme = theme;
         const stored = localStorage.getItem('tmdb_bg');
         if (stored) {
           const { path } = JSON.parse(stored);
-          if (path) document.write('<style>:root{--bg-image:url("/t/p/original'+path+'");}</style>');
+          if (path) document.write('<style>:root{--poster:url("/t/p/original' + path + '")}</style>');
         }
-      } catch {}
+      } catch (e) {}
     })();
   </script>
   <style>
-    :root{color-scheme:dark;--bg:#050816;--panel:rgba(10,15,29,.78);--panel-strong:rgba(12,18,35,.92);--line:rgba(255,255,255,.13);--text:#f8fafc;--muted:#aeb8d4;--soft:#dbe4ff;--accent:#8b5cf6;--accent2:#22d3ee;--ok:#34d399;--warn:#fbbf24;--danger:#fb7185;--shadow:0 24px 80px rgba(0,0,0,.46);--glow-a:rgba(139,92,246,.34);--glow-b:rgba(34,211,238,.24);--bg-image:url('/t/p/original/1RgPyOhN4DRs225BGTlHJqCudII.jpg')}
-    :root[data-theme="slate"]{--bg:#020617;--panel:rgba(15,23,42,.84);--panel-strong:rgba(15,23,42,.95);--line:rgba(148,163,184,.18);--text:#f8fafc;--muted:#94a3b8;--soft:#e2e8f0;--accent:#38bdf8;--accent2:#818cf8;--ok:#22c55e;--warn:#f59e0b;--danger:#f43f5e;--glow-a:rgba(56,189,248,.2);--glow-b:rgba(129,140,248,.18)}
-    :root[data-theme="cinema"]{--bg:#12070a;--panel:rgba(24,10,14,.82);--panel-strong:rgba(33,13,18,.94);--line:rgba(253,186,116,.18);--text:#fff7ed;--muted:#fed7aa;--soft:#ffedd5;--accent:#f97316;--accent2:#f43f5e;--ok:#84cc16;--warn:#facc15;--danger:#fb7185;--glow-a:rgba(249,115,22,.28);--glow-b:rgba(244,63,94,.22)}
-    :root[data-theme="terminal"]{color-scheme:dark;--bg:#07100a;--panel:rgba(8,18,10,.9);--panel-strong:rgba(5,14,8,.96);--line:rgba(74,222,128,.22);--text:#d9ffe5;--muted:#6aa875;--soft:#99f6b6;--accent:#22c55e;--accent2:#38bdf8;--ok:#36f47a;--warn:#facc15;--danger:#ff5d5d;--shadow:0 20px 70px rgba(0,0,0,.55);--glow-a:rgba(34,197,94,.14);--glow-b:rgba(56,189,248,.08)}
-    :root[data-theme="swiss"]{color-scheme:light;--bg:#f7f6f2;--panel:rgba(255,255,255,.94);--panel-strong:#ffffff;--line:#d9d7d0;--text:#0a0a0a;--muted:#6b6b63;--soft:#3f3f38;--accent:#2563eb;--accent2:#10b981;--ok:#047857;--warn:#b45309;--danger:#dc2626;--shadow:0 18px 45px rgba(15,23,42,.08);--glow-a:rgba(37,99,235,.06);--glow-b:rgba(16,185,129,.05)}
-    *{box-sizing:border-box}
-    body{font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background-color:var(--bg);background-image:var(--bg-image);background-position:center;background-size:cover;background-attachment:fixed;background-repeat:no-repeat;color:var(--text);margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:28px;transition:background-image .5s ease-in-out,color .2s ease,background-color .2s ease;position:relative;overflow-x:hidden}
-    body::before{content:"";position:fixed;inset:0;background:radial-gradient(circle at 18% 12%,var(--glow-a),transparent 34%),radial-gradient(circle at 82% 8%,var(--glow-b),transparent 30%),linear-gradient(135deg,rgba(3,7,18,.91),rgba(15,23,42,.7) 48%,rgba(2,6,23,.94));pointer-events:none;z-index:-2}
-    body::after{content:"";position:fixed;inset:0;background:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:42px 42px;mask-image:linear-gradient(to bottom,rgba(0,0,0,.75),transparent 82%);pointer-events:none;z-index:-1}
-    header{display:none}
-    main{width:100%;max-width:1180px;padding:0;background:transparent;border:0;box-shadow:none;backdrop-filter:none}
-    section{margin-top:18px}
-    grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;grid-auto-rows:220px;align-items:stretch}
-    card{display:block;background:linear-gradient(145deg,var(--panel-strong),var(--panel));border:1px solid var(--line);border-radius:22px;padding:18px;box-shadow:0 14px 34px rgba(0,0,0,.28);backdrop-filter:blur(16px);position:relative;overflow:hidden}
-    card::before{content:"";position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.1),transparent 38%);opacity:.46;pointer-events:none}
-    card > *{position:relative}
-    grid > card{height:100%;min-height:0;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;text-align:left;transition:transform .18s ease,border-color .18s ease,background .18s ease}
-    grid > card:hover{transform:translateY(-3px);border-color:color-mix(in srgb,var(--accent) 52%,transparent);background:linear-gradient(145deg,color-mix(in srgb,var(--panel-strong) 90%,var(--accent) 10%),var(--panel))}
-    label{display:block;color:var(--soft);font-size:12px;font-weight:800;letter-spacing:.04em;margin-bottom:5px;text-transform:uppercase}
-    value{display:block;font-size:28px;font-weight:900;letter-spacing:-.04em;text-align:left;margin-top:4px;color:var(--text);line-height:1.05}
-    a{color:var(--accent2);text-decoration:none}
-    .login{width:min(100%,430px);margin:0 auto;padding:30px;background:linear-gradient(145deg,var(--panel-strong),var(--panel));border:1px solid rgba(255,255,255,.16);border-radius:30px;box-shadow:var(--shadow);backdrop-filter:blur(24px);position:relative;overflow:hidden}
-    .login::before{content:"";position:absolute;inset:-1px;background:radial-gradient(circle at 18% 0,var(--glow-a),transparent 32%),radial-gradient(circle at 92% 10%,var(--glow-b),transparent 28%);pointer-events:none}
-    .login > *{position:relative}
-    .login-header{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:28px}
-    .login-logo{display:flex;align-items:center;gap:12px}
-    .login-logo-mark{width:42px;height:42px;border-radius:16px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:20px;box-shadow:0 12px 30px color-mix(in srgb,var(--accent) 36%,transparent)}
-    .login-title{font-size:20px;font-weight:900;color:var(--text);letter-spacing:-.02em}
-    .login-sub{font-size:12px;color:var(--soft);border:1px solid color-mix(in srgb,var(--accent2) 30%,transparent);background:color-mix(in srgb,var(--accent2) 14%,transparent);border-radius:999px;padding:6px 10px;white-space:nowrap}
-    .login-field{margin-bottom:16px}
-    .login label{font-size:12px;color:var(--soft);font-weight:800;margin-bottom:8px;text-transform:none;letter-spacing:0}
-    .login input{width:100%;padding:14px 15px;border-radius:16px;border:1px solid rgba(148,163,184,.22);background:rgba(2,6,23,.72);color:var(--text);outline:none;transition:border-color .15s,box-shadow .15s,background .15s;font-size:14px}
-    .login input::placeholder{color:#667085}
-    .login input:focus{border-color:color-mix(in srgb,var(--accent) 86%,transparent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 18%,transparent);background:rgba(2,6,23,.9)}
-    .login-extra{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-top:8px}
-    .login-extra input{width:auto;margin:0;accent-color:var(--accent)}
-    .login button{width:100%;padding:14px;border-radius:18px;border:0;background:linear-gradient(135deg,var(--accent),#2563eb 55%,var(--accent2));color:#fff;font-weight:900;cursor:pointer;margin-top:18px;font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 16px 32px rgba(37,99,235,.28);transition:transform .15s ease,box-shadow .15s ease,filter .15s ease}
-    .login button:hover{transform:translateY(-1px);box-shadow:0 20px 40px rgba(37,99,235,.36);filter:saturate(1.08)}
-    .login button:disabled{opacity:.65;cursor:not-allowed;transform:none;box-shadow:none}
-    .row{min-height:20px;margin-top:12px;color:#c4b5fd;font-size:13px;text-align:center}
-    .welcome{margin-bottom:16px;padding:20px 22px;background:linear-gradient(135deg,var(--panel-strong),color-mix(in srgb,var(--panel) 86%,transparent));border:1px solid var(--line);border-radius:24px;box-shadow:var(--shadow);backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:space-between;gap:18px;text-align:left;position:relative;overflow:hidden}
-    .welcome::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 12%,transparent),transparent 48%,color-mix(in srgb,var(--accent2) 10%,transparent));pointer-events:none}
-    .welcome > *{position:relative}
-    .welcome h2{font-size:30px;font-weight:950;color:var(--text);margin:0 0 6px;letter-spacing:-.05em}
-    .welcome p{font-size:14px;color:var(--muted);margin:0}
-    .meta-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}
-    .pill{display:inline-flex;gap:7px;align-items:center;padding:7px 10px;border-radius:999px;background:rgba(15,23,42,.6);border:1px solid rgba(148,163,184,.2);color:var(--soft);font-size:12px;font-weight:800;white-space:nowrap}
-    .pill.ok{background:rgba(34,197,94,.12);border-color:rgba(74,222,128,.22);color:#86efac}
-    .pill.warn{background:rgba(245,158,11,.13);border-color:rgba(251,191,36,.26);color:#fde68a}
-    .pill.danger{background:rgba(251,113,133,.14);border-color:rgba(251,113,133,.3);color:#fecdd3}
-    .panel-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
-    .stat-icon{width:44px;height:42px;border-radius:15px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:950;color:#fff;margin-bottom:10px;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 10px 24px color-mix(in srgb,var(--accent) 28%,transparent);letter-spacing:.03em}
-    .stat-sub{font-size:12px;color:var(--muted);margin:0 0 10px;line-height:1.35}
-    .stat-list{width:100%;display:flex;flex-direction:column;gap:7px;font-size:15px;color:var(--text);margin-top:8px;align-items:stretch;font-weight:800}
-    .status-row{width:100%;display:flex;align-items:center;justify-content:space-between;border-radius:12px;background:rgba(15,23,42,.62);border:1px solid rgba(148,163,184,.14);padding:6px 8px;text-align:left}
-    .status-bars{display:flex;align-items:flex-end;gap:6px;width:100%;height:90px;margin-top:8px;padding-bottom:18px}
-    .status-bar{flex:1;min-width:0;border-radius:8px 8px 6px 6px;background:linear-gradient(180deg,var(--accent2),var(--accent));position:relative;transition:height .25s ease-out}
-    .status-bar.warn{background:linear-gradient(180deg,#fbbf24,#f97316)}
-    .status-bar.err{background:linear-gradient(180deg,#fb7185,#e11d48)}
-    .status-bar-label{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:10px;color:#cbd5e1;white-space:nowrap}
-    .status-bar-count{position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:10px;color:#e2e8f0;white-space:nowrap}
-    .meter{position:relative;width:100%;height:9px;border-radius:999px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:11px}
-    .meter-fill{position:absolute;left:0;top:0;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--ok),var(--accent2));width:0%;transition:width .35s ease-out}
-    .meter-fill.warn{background:linear-gradient(90deg,#f59e0b,#f97316)}
-    .meter-fill.danger{background:linear-gradient(90deg,#ef4444,#f43f5e)}
-    .metric-alert{display:none;margin-bottom:14px;padding:11px 13px;border-radius:14px;border:1px solid rgba(251,113,133,.4);background:rgba(127,29,29,.45);color:#fecaca;font-size:13px;font-weight:800;backdrop-filter:blur(12px)}
-    .chip-row{display:flex;gap:6px;flex-wrap:wrap;width:100%;margin-top:10px}
-    .mini-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 8px;border-radius:999px;background:rgba(15,23,42,.64);border:1px solid rgba(148,163,184,.16);font-size:11px;color:var(--soft);font-weight:800;max-width:100%}
-    .mini-chip.hit{background:rgba(34,197,94,.12);border-color:rgba(74,222,128,.2);color:#bbf7d0}
-    .mini-chip.miss{background:rgba(251,191,36,.12);border-color:rgba(251,191,36,.22);color:#fde68a}
-    .mini-chip.bad{background:rgba(251,113,133,.12);border-color:rgba(251,113,133,.25);color:#fecdd3}
-    #v_status{display:none}
-    #v_disk_path,#v_mem_count,#v_err_rate{width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .log-panel{min-height:0}
-    .log-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;flex-wrap:wrap}
-    .log-title-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-    .log-actions,.log-filters{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-    .log-filters{margin-bottom:10px}
-    .log-filter.active{background:linear-gradient(135deg,var(--accent),var(--accent2));border-color:transparent;color:#fff;box-shadow:0 10px 24px color-mix(in srgb,var(--accent) 24%,transparent)}
-    .log-filter[data-filter="5xx"].active,.log-filter[data-filter="4xx"].active{background:linear-gradient(135deg,#ef4444,#f97316)}
-    .logs{height:430px;max-height:430px;overflow:auto;border-radius:18px;background:rgba(2,6,23,.72);border:1px solid rgba(148,163,184,.18);padding:12px;box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
-    .log-entry{display:grid;grid-template-columns:140px 58px 96px 72px minmax(220px,1fr) 52px;align-items:center;font-size:12px;line-height:1.5;margin-bottom:8px;gap:8px}
-    .log-entry.error{padding:6px;border-radius:18px;background:rgba(251,113,133,.06);border:1px solid rgba(251,113,133,.16)}
-    .log-time,.log-pill,.log-body{border-radius:999px;border:1px solid rgba(148,163,184,.18);background:rgba(15,23,42,.76);color:#e5e7eb;padding:6px 9px;min-width:0}
-    .log-time{color:#bfdbfe;text-align:center;white-space:nowrap;background:rgba(219,234,254,.12);border-color:rgba(147,197,253,.18)}
-    .log-pill{text-align:center;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .log-pill.ok{color:#bbf7d0;background:rgba(34,197,94,.12);border-color:rgba(74,222,128,.2)}
-    .log-pill.warn{color:#fde68a;background:rgba(251,191,36,.12);border-color:rgba(251,191,36,.22)}
-    .log-pill.bad{color:#fecdd3;background:rgba(251,113,133,.12);border-color:rgba(251,113,133,.25)}
-    .log-pill.hit{color:#bae6fd;background:rgba(14,165,233,.12);border-color:rgba(125,211,252,.22)}
-    .log-pill.miss{color:#ddd6fe;background:rgba(139,92,246,.12);border-color:rgba(167,139,250,.22)}
-    .log-body{border-radius:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;word-break:normal;cursor:pointer}
-    .log-body.expanded{white-space:normal;overflow:visible;text-overflow:clip;word-break:break-all;border-radius:14px;background:rgba(15,23,42,.92)}
-    .log-copy{border-radius:999px;border:1px solid rgba(148,163,184,.18);background:rgba(96,165,250,.12);color:#dbeafe;padding:6px 9px;font-size:12px;font-weight:900;cursor:pointer;transition:background .15s,border-color .15s,transform .1s}
-    .log-copy:hover{background:rgba(96,165,250,.24);border-color:rgba(147,197,253,.36);transform:translateY(-1px)}
-    .log-copy.done{color:#bbf7d0;background:rgba(34,197,94,.12);border-color:rgba(74,222,128,.22)}
-    .chip-btn{font-size:12px;padding:8px 12px;border-radius:999px;border:1px solid rgba(148,163,184,.2);cursor:pointer;background:rgba(96,165,250,.14);color:#dbeafe;transition:background .2s,transform .1s,border-color .2s;font-weight:900}
-    .chip-btn:hover{background:rgba(96,165,250,.24);border-color:rgba(147,197,253,.38);transform:translateY(-1px)}
-    .chip-btn.danger{background:rgba(251,113,133,.12);border-color:rgba(251,113,133,.24);color:#fecdd3}
-    .chip-btn.danger:hover{background:rgba(251,113,133,.22);border-color:rgba(251,113,133,.44)}
-    .chip-btn.off{background:rgba(148,163,184,.16);color:#e5e7eb}
-    @media (max-width:1100px){grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:205px}.log-entry{grid-template-columns:132px 54px 90px 68px minmax(180px,1fr) 52px;gap:7px}.log-time,.log-pill,.log-body{padding:6px 8px}}
-    @media (max-width:760px){body{padding:14px;align-items:flex-start;background-attachment:scroll}main{max-width:100%}.welcome{display:block;padding:18px}.welcome h2{font-size:24px}.panel-actions{justify-content:flex-start;margin-top:16px}grid{grid-template-columns:1fr;grid-auto-rows:auto}grid > card{min-height:150px}.logs{height:50vh;max-height:50vh}.log-entry{grid-template-columns:1fr;align-items:stretch}.log-time,.log-pill{text-align:left}.log-copy{width:max-content}.login{padding:24px;border-radius:24px}.login-header{align-items:flex-start}.login-sub{display:none}}
-    body{display:block;padding:0;background-color:#050607;background-position:center;background-size:cover}
-    body::before{z-index:-1;background:linear-gradient(90deg,rgba(3,5,7,.95) 0%,rgba(3,5,7,.7) 42%,rgba(3,5,7,.24) 72%,rgba(3,5,7,.52)),linear-gradient(0deg,#050607 0%,transparent 44%)}
-    body::after{z-index:-1;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.18'/%3E%3C/svg%3E");opacity:.28;mask-image:none}
-    body.drawer-open{overflow:hidden}
-    main{max-width:none;min-height:100vh}
-    #boot,#login{position:relative;top:12vh}
-    #content{min-height:100vh;padding:0 46px 120px}
-    .cinematic-shell{min-height:100vh;display:flex;flex-direction:column}
-    .topbar{height:80px;display:flex;align-items:center;gap:16px}
-    .brand{font-size:17px;font-weight:950;letter-spacing:.01em}.brand-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#5df5c5;box-shadow:0 0 18px #5df5c5;margin-right:12px}
-    .topbar-meta{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:11px;color:rgba(255,255,255,.62)}
-    .overview{flex:1;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(360px,400px);align-items:center;gap:7vw;padding:50px 0 110px}
-    .hero-copy{margin:0;max-width:650px}.hero-kicker{font-size:11px;letter-spacing:.26em;color:#84ecd0;font-weight:900}.hero-copy h2{font-size:clamp(46px,5vw,72px);line-height:1.04;letter-spacing:-.055em;margin:18px 0}.hero-copy p{font-size:15px;line-height:1.85;color:#d3d8d7;max-width:540px}.hero-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:28px}
-    .status-panel{border:1px solid rgba(255,255,255,.17);border-radius:22px;background:linear-gradient(145deg,rgba(8,11,13,.9),rgba(18,22,24,.74));backdrop-filter:blur(22px);box-shadow:0 28px 80px rgba(0,0,0,.35);padding:25px}.status-panel-head{display:flex;justify-content:space-between;align-items:center;padding-bottom:18px;border-bottom:1px solid rgba(255,255,255,.12)}.status-panel-head strong{font-size:14px}.status-panel-head span{font-size:10px;color:rgba(255,255,255,.5)}
-    .overview-stats{display:grid;grid-template-columns:1fr 1fr}.overview-stat{padding:20px 0;border-bottom:1px solid rgba(255,255,255,.11)}.overview-stat:nth-child(odd){border-right:1px solid rgba(255,255,255,.11)}.overview-stat:nth-child(even){padding-left:24px}.overview-label{font-size:11px;color:rgba(255,255,255,.5)}.overview-value{font-size:29px;font-weight:900;letter-spacing:-.04em;margin-top:8px}.overview-note{font-size:10px;color:#66e5bd;margin-top:7px}
-    .trend-line{height:70px;padding-top:17px}.trend-line svg{width:100%;height:100%}
-    .action-dock{position:fixed;z-index:20;left:50%;bottom:34px;transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:10px;border:1px solid rgba(255,255,255,.16);border-radius:20px;background:rgba(8,10,12,.88);backdrop-filter:blur(24px);box-shadow:0 22px 70px rgba(0,0,0,.55)}
-    .dock-btn{border:0;border-radius:13px;padding:14px 18px;background:transparent;color:#d6d9d8;font-size:12px;font-weight:850;white-space:nowrap;cursor:pointer}.dock-btn:hover,.dock-btn:focus-visible{background:rgba(255,255,255,.09);outline:2px solid rgba(93,245,197,.7);outline-offset:2px}.dock-btn.primary{background:#eafcf7;color:#06110e;padding-inline:24px}.dock-divider{width:1px;height:30px;background:rgba(255,255,255,.13);margin:0 4px}
-    .drawer-backdrop{display:block;position:fixed;inset:0;z-index:29;border:0;background:rgba(0,0,0,.55);opacity:0;visibility:hidden;transition:opacity .24s,visibility .24s}.drawer-backdrop.open{opacity:1;visibility:visible}
-    .details-drawer{position:fixed;z-index:30;inset:0;width:100%;height:100vh;padding:24px;background:#080b0e;border:0;box-shadow:0 0 120px rgba(0,0,0,.72);transform:translateY(100%);transition:transform .24s ease;overflow:auto}.details-drawer.open{transform:translateY(0)}.drawer-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}.drawer-head h2{margin:0;font-size:25px}.drawer-close{border:1px solid rgba(255,255,255,.16);border-radius:12px;background:rgba(255,255,255,.06);color:white;padding:10px 13px;cursor:pointer}.drawer-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.drawer-metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:16px}.drawer-card{border:1px solid rgba(255,255,255,.12);border-radius:16px;background:rgba(255,255,255,.04);padding:16px}.drawer-card value{font-size:20px}.details-drawer .log-panel{border-radius:16px}.details-drawer .logs{height:min(70vh,720px);max-height:none}.details-drawer .log-entry{grid-template-columns:150px 60px 98px 72px minmax(420px,1fr) 54px}.details-drawer .metric-alert{margin:0 0 14px}
-    :root[data-theme="aurora"] body{background-color:#050816}
-    :root[data-theme="aurora"] .brand::after{content:" · Aurora Glass";color:rgba(255,255,255,.42);font-weight:700}
-    :root[data-theme="terminal"] body{font-family:"JetBrains Mono","SFMono-Regular",Consolas,monospace;background-image:none!important;background-color:#07100a}
-    :root[data-theme="terminal"] body::before{background:radial-gradient(circle at 25% 15%,rgba(34,197,94,.13),transparent 30%),linear-gradient(180deg,#07100a,#020704)}
-    :root[data-theme="terminal"] body::after{background:linear-gradient(rgba(74,222,128,.05) 1px,transparent 1px);background-size:100% 38px;opacity:.9}
-    :root[data-theme="terminal"] .brand::before{content:"● ● ● ";color:#ff5d5d}
-    :root[data-theme="terminal"] .brand::after{content:" monitor --live";color:#7bd88f;font-weight:700}
-    :root[data-theme="terminal"] .hero-kicker::before,
-    :root[data-theme="terminal"] label::before{content:"> ";color:#22c55e}
-    :root[data-theme="terminal"] .hero-copy h2{font-size:clamp(34px,4.4vw,58px);letter-spacing:-.035em;color:#d9ffe5}
-    :root[data-theme="terminal"] .hero-copy p,
-    :root[data-theme="terminal"] .overview-note{color:#7bd88f}
-    :root[data-theme="terminal"] .status-panel,
-    :root[data-theme="terminal"] .details-drawer,
-    :root[data-theme="terminal"] .drawer-card,
-    :root[data-theme="terminal"] card{border-radius:8px;background:rgba(5,14,8,.92);border-color:rgba(74,222,128,.24);box-shadow:none}
-    :root[data-theme="terminal"] .dock-btn.primary,
-    :root[data-theme="terminal"] .log-filter.active{background:#123d21;color:#d9ffe5;border:1px solid rgba(74,222,128,.35)}
-    :root[data-theme="swiss"] body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background-image:none!important;background-color:#f7f6f2;color:#0a0a0a}
-    :root[data-theme="swiss"] body::before{background:linear-gradient(180deg,#f7f6f2,#ebe9e2)}
-    :root[data-theme="swiss"] body::after{background:linear-gradient(#dedbd2 1px,transparent 1px);background-size:100% 64px;opacity:.55}
-    :root[data-theme="swiss"] .brand{color:#0a0a0a}.brand-dot{background:var(--ok);box-shadow:none}
-    :root[data-theme="swiss"] .brand::after{content:" · Swiss Editorial";color:#6b6b63;font-weight:700}
-    :root[data-theme="swiss"] .hero-kicker{color:#0a0a0a;letter-spacing:.12em}
-    :root[data-theme="swiss"] .hero-copy h2{font-size:clamp(40px,5vw,68px);color:#0a0a0a}
-    :root[data-theme="swiss"] .hero-copy p,
-    :root[data-theme="swiss"] .topbar-meta{color:#4b4b44}
-    :root[data-theme="swiss"] .status-panel,
-    :root[data-theme="swiss"] .details-drawer,
-    :root[data-theme="swiss"] .drawer-card,
-    :root[data-theme="swiss"] card,
-    :root[data-theme="swiss"] .action-dock{background:#fff;border-color:#d9d7d0;box-shadow:0 18px 45px rgba(15,23,42,.08);backdrop-filter:none}
-    :root[data-theme="swiss"] .details-drawer{color:#0a0a0a}
-    :root[data-theme="swiss"] .dock-btn,
-    :root[data-theme="swiss"] .chip-btn{color:#111827}
-    :root[data-theme="swiss"] .dock-btn.primary,
-    :root[data-theme="swiss"] .log-filter.active{background:#0a0a0a;color:#fff}
-    :root[data-theme="swiss"] .logs,
-    :root[data-theme="swiss"] .log-time,
-    :root[data-theme="swiss"] .log-pill,
-    :root[data-theme="swiss"] .log-body{background:#f8f7f3;color:#111827;border-color:#dedbd2}
-    @media (max-width:900px){#content{padding:0 24px 120px}.overview{grid-template-columns:1fr;align-content:center;gap:28px;padding:26px 0 120px}.hero-copy{max-width:720px}.status-panel{width:100%;max-width:560px}.action-dock{max-width:calc(100vw - 28px);overflow-x:auto;justify-content:flex-start}.topbar{height:68px}}
-    @media (max-width:900px){.drawer-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.details-drawer .log-entry{grid-template-columns:132px 54px 90px 68px minmax(220px,1fr) 52px}}
-    @media (max-width:640px){#content{padding:0 16px 110px}.overview{padding:20px 0 110px}.hero-copy h2{font-size:42px}.hero-copy p{font-size:13px}.status-panel{padding:18px}.overview-value{font-size:24px}.action-dock{bottom:16px}.dock-btn{padding:12px 14px}.details-drawer{padding:18px}.drawer-metrics{grid-template-columns:1fr}.details-drawer .logs{height:62vh}.details-drawer .log-entry{grid-template-columns:1fr}.topbar-meta .pill:not(#connection_state){display:none}}
-    @media (prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}}
-  </style>
+:root {
+  --poster: url('https://image.tmdb.org/t/p/original/1RgPyOhN4DRs225BGTlHJqCudII.jpg');
+  --bg: #050005;
+  --ink: #f6ecf6;
+  --muted: #b89bb8;
+  --pink: #fe00fe;
+  --cyan: #00f0ff;
+  --yellow: #fcee0a;
+  --purple: #7700a6;
+  --panel: rgba(8, 0, 14, 0.78);
+  --panel-2: rgba(16, 0, 24, 0.88);
+  --ok: #39ff14;
+  --warn: #fcee0a;
+  --bad: #ff2a55;
+  --line: rgba(254, 0, 254, 0.45);
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+  --sans: 'Noto Sans SC', 'JetBrains Mono', system-ui, sans-serif;
+  --hud-pad: clamp(16px, 2.5vw, 32px);
+}
+* { box-sizing: border-box; }
+html, body { min-height: 100%; min-height: 100dvh; }
+body {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--sans);
+  background:
+    linear-gradient(180deg, rgba(0,0,0,.55), rgba(6,0,10,.82) 55%, rgba(0,0,0,.9)),
+    radial-gradient(ellipse at 50% 20%, rgba(254,0,254,.22), transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(0,240,255,.08), transparent 40%),
+    radial-gradient(circle at 50% 50%, #5a0080 0%, #050005 62%),
+    var(--poster) center/cover fixed no-repeat,
+    #000;
+  overflow-x: hidden;
+}
+.cp-line { position: fixed; z-index: 40; background: var(--pink); pointer-events: none; opacity: .85; }
+.cp-line.top, .cp-line.bottom { left: 10px; right: 10px; height: 1px; }
+.cp-line.top { top: 10px; }
+.cp-line.bottom { bottom: 10px; }
+.cp-line.left, .cp-line.right { top: 10px; bottom: 10px; width: 1px; }
+.cp-line.left { left: 10px; }
+.cp-line.right { right: 10px; }
+.cp-corner {
+  position: fixed; z-index: 41; width: 22px; height: 22px; pointer-events: none;
+  border: 2px solid var(--pink);
+}
+.cp-corner.tl { top: 16px; left: 16px; border-right: 0; border-bottom: 0; }
+.cp-corner.tr { top: 16px; right: 16px; border-left: 0; border-bottom: 0; }
+.cp-corner.bl { bottom: 16px; left: 16px; border-right: 0; border-top: 0; }
+.cp-corner.br { bottom: 16px; right: 16px; border-left: 0; border-top: 0; }
+.scanlines {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.08) 2px, rgba(0,0,0,.08) 4px);
+  mix-blend-mode: multiply; opacity: .35;
+}
+.glitch-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.glitch-bg i {
+  position: absolute; inset: -2%;
+  background: radial-gradient(circle farthest-corner at 50% 40%, rgba(254,0,254,.32), rgba(119,0,166,.12) 55%, transparent 78%);
+  mix-blend-mode: screen; opacity: .5;
+}
+.glitch-bg i:nth-child(2), .glitch-bg i:nth-child(3) { opacity: 0; }
+.imgloaded .glitch-bg i:nth-child(2) {
+  animation: glitch1 5s linear 1s infinite;
+  background-color: rgba(251,144,154,.1);
+}
+.imgloaded .glitch-bg i:nth-child(3) {
+  animation: glitch2 5s linear 1s infinite;
+  background-color: rgba(0,240,255,.08);
+}
+@keyframes glitch1 {
+  0% { opacity: 1; transform: translate3d(10px,0,0); clip-path: polygon(0 2%,100% 2%,100% 6%,0 6%); }
+  12% { clip-path: polygon(0 42%,100% 42%,100% 48%,0 48%); }
+  24% { clip-path: polygon(0 72%,100% 72%,100% 80%,0 80%); }
+  35%,100% { opacity: 0; transform: none; clip-path: polygon(0 0,0 0,0 0,0 0); }
+}
+@keyframes glitch2 {
+  0% { opacity: 1; transform: translate3d(-10px,0,0); clip-path: polygon(0 20%,100% 20%,100% 26%,0 26%); }
+  14% { clip-path: polygon(0 58%,100% 58%,100% 66%,0 66%); }
+  28% { clip-path: polygon(0 8%,100% 8%,100% 14%,0 14%); }
+  40%,100% { opacity: 0; transform: none; clip-path: polygon(0 0,0 0,0 0,0 0); }
+}
+#app { position: relative; z-index: 2; min-height: 100dvh; }
+.brand-mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 48px; height: 48px; padding: 0 12px;
+  background: var(--pink); color: #0a0010;
+  font-family: var(--mono); font-weight: 800; letter-spacing: .06em;
+  clip-path: polygon(0 0, 100% 0, 100% 72%, 86% 100%, 0 100%);
+  box-shadow: 0 0 24px rgba(254,0,254,.45);
+}
+.brand-mark.sm { min-width: 40px; height: 40px; font-size: 13px; }
+.glitch-text {
+  position: relative; display: inline-block;
+  font-family: var(--mono); font-weight: 800; letter-spacing: .1em;
+  text-transform: uppercase; color: #fff;
+  text-shadow: 0 0 18px rgba(254,0,254,.35);
+}
+.glitch-text::before, .glitch-text::after {
+  content: attr(data-text); position: absolute; left: 0; top: 0; width: 100%; overflow: hidden;
+  pointer-events: none;
+}
+.glitch-text::before {
+  color: var(--cyan); z-index: -1;
+  animation: gt1 3.2s infinite linear alternate-reverse;
+}
+.glitch-text::after {
+  color: var(--pink); z-index: -2;
+  animation: gt2 2.4s infinite linear alternate-reverse;
+}
+@keyframes gt1 {
+  0% { clip-path: inset(0 0 85% 0); transform: translate(-2px, 0); }
+  40% { clip-path: inset(40% 0 30% 0); transform: translate(2px, 0); }
+  100% { clip-path: inset(80% 0 0 0); transform: translate(-1px, 0); }
+}
+@keyframes gt2 {
+  0% { clip-path: inset(70% 0 0 0); transform: translate(2px, 0); }
+  50% { clip-path: inset(20% 0 50% 0); transform: translate(-2px, 0); }
+  100% { clip-path: inset(0 0 75% 0); transform: translate(1px, 0); }
+}
+.login-wrap {
+  min-height: 100dvh; display: grid; place-items: center; padding: var(--hud-pad);
+}
+.login {
+  position: relative; width: min(460px, 100%); padding: 32px 28px 26px;
+  background: linear-gradient(145deg, rgba(30,0,40,.92), rgba(6,0,12,.94));
+  border: 1px solid rgba(254,0,254,.55);
+  box-shadow: 0 0 0 1px rgba(0,240,255,.12) inset, 0 0 60px rgba(254,0,254,.18), 0 30px 80px rgba(0,0,0,.55);
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
+}
+.login::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px;
+  background: linear-gradient(90deg, transparent, var(--pink), var(--yellow), var(--cyan), transparent);
+}
+.login-header {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 22px;
+}
+.login-logo { display: flex; align-items: center; gap: 14px; }
+.login-title { font-size: 20px; }
+.login-sub {
+  margin-top: 6px; font-family: var(--mono); font-size: 11px;
+  color: var(--pink); letter-spacing: .18em; text-transform: uppercase;
+}
+.chip-lang {
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  padding: 6px 10px; color: var(--yellow);
+  border: 1px solid rgba(252,238,10,.5); background: rgba(252,238,10,.08); letter-spacing: .12em;
+}
+.tagline { margin: 0 0 22px; color: var(--muted); line-height: 1.7; font-size: 14px; }
+.tagline b { color: var(--yellow); font-weight: 700; }
+.login-field { margin-bottom: 16px; }
+.login-field label {
+  display: block; margin-bottom: 8px; font-family: var(--mono); font-size: 11px;
+  letter-spacing: .16em; text-transform: uppercase; color: var(--pink);
+}
+.login-field input {
+  width: 100%; padding: 14px 14px; background: rgba(0,0,0,.45); color: var(--ink);
+  border: 1px solid rgba(254,0,254,.35); font-family: var(--mono); font-size: 14px; outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+.login-field input:focus {
+  border-color: var(--pink);
+  box-shadow: 0 0 0 1px rgba(254,0,254,.35), 0 0 24px rgba(254,0,254,.15);
+}
+.login-extra {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 18px; color: var(--muted); font-size: 13px;
+}
+.login button[type="button"] {
+  width: 100%; border: 0; cursor: pointer; padding: 14px 16px;
+  background: linear-gradient(90deg, var(--pink), #c400c4 55%, #8a00ff);
+  color: #0a0010; font-family: var(--mono); font-weight: 800;
+  font-size: 13px; letter-spacing: .2em; text-transform: uppercase;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%);
+  transition: filter .15s, transform .15s;
+}
+.login button[type="button"]:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
+.login button[type="button"]:disabled { opacity: .55; cursor: wait; }
+.login-msg {
+  min-height: 22px; margin-top: 12px; font-family: var(--mono); font-size: 12px;
+  color: var(--yellow); letter-spacing: .04em;
+}
+.login-msg.err { color: var(--bad); }
+.login-msg.ok { color: var(--ok); }
+.dash {
+  width: min(1280px, calc(100% - 40px)); margin: 0 auto; padding: 28px 0 48px;
+}
+.hud {
+  display: flex; align-items: center; justify-content: space-between; gap: 18px;
+  margin-bottom: 28px; padding: 16px 18px; background: var(--panel);
+  border: 1px solid var(--line); box-shadow: 0 0 40px rgba(254,0,254,.08);
+  backdrop-filter: blur(10px); position: relative;
+}
+.hud::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: linear-gradient(180deg, var(--pink), var(--cyan));
+}
+.hud-brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.hud-brand h1 { margin: 0; font-size: clamp(16px, 2.2vw, 22px); line-height: 1.2; }
+.hud-brand p {
+  margin: 6px 0 0; font-family: var(--mono); font-size: 11px;
+  color: var(--muted); letter-spacing: .14em; text-transform: uppercase;
+}
+.hud-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; justify-content: flex-end; }
+.live-badge, .meta-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: .12em;
+  text-transform: uppercase; padding: 8px 12px; white-space: nowrap;
+}
+.live-badge {
+  border: 1px solid rgba(57,255,20,.35); background: rgba(57,255,20,.08); color: var(--ok);
+}
+.meta-chip {
+  border: 1px solid rgba(0,240,255,.35); background: rgba(0,240,255,.08); color: var(--cyan);
+}
+.live-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--ok);
+  box-shadow: 0 0 10px var(--ok); animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: .45; transform: scale(.85); }
+}
+.zone { margin-bottom: 22px; }
+.zone-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  margin-bottom: 12px; padding: 0 4px;
+}
+.zone-head h2 {
+  margin: 0; font-family: var(--mono); font-size: 12px; font-weight: 700;
+  letter-spacing: .22em; text-transform: uppercase; color: var(--yellow);
+  text-shadow: 0 0 12px rgba(252,238,10,.25);
+}
+.zone-head span { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: .08em; }
+.zone-grid { display: grid; gap: 14px; }
+.zone-grid.traffic { grid-template-columns: repeat(3, 1fr); }
+.zone-grid.cache { grid-template-columns: 1.2fr 1fr 1fr; }
+.zone-grid.system { grid-template-columns: 1fr 1fr 1fr; }
+.panel {
+  position: relative; min-height: 150px; padding: 20px 18px 18px;
+  background: var(--panel-2); border: 1px solid rgba(254,0,254,.28);
+  backdrop-filter: blur(12px); overflow: hidden;
+  transition: border-color .2s, box-shadow .2s, transform .2s;
+}
+.panel:hover {
+  border-color: rgba(254,0,254,.6);
+  box-shadow: 0 0 28px rgba(254,0,254,.12);
+  transform: translateY(-2px);
+}
+.panel::before {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(254,0,254,.7), transparent);
+}
+.panel.hero {
+  min-height: 180px;
+  background:
+    linear-gradient(145deg, rgba(40,0,50,.75), rgba(8,0,14,.9)),
+    radial-gradient(circle at 100% 0%, rgba(254,0,254,.18), transparent 45%);
+}
+.panel-kicker {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px;
+}
+.stat-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 42px; height: 28px; padding: 0 8px;
+  font-family: var(--mono); font-size: 11px; font-weight: 800; letter-spacing: .08em;
+  color: #0a0010; background: var(--pink);
+  clip-path: polygon(0 0, 100% 0, 100% 70%, 88% 100%, 0 100%);
+}
+.stat-icon.y { background: var(--yellow); }
+.stat-icon.c { background: var(--cyan); }
+.panel label {
+  display: block; font-family: var(--mono); font-size: 11px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 6px;
+}
+.panel .value {
+  font-family: var(--mono); font-weight: 800;
+  font-size: clamp(28px, 4vw, 42px); line-height: 1.05; color: #fff;
+  text-shadow: 0 0 24px rgba(254,0,254,.25); word-break: break-all;
+}
+.panel.hero .value { font-size: clamp(36px, 5vw, 56px); color: var(--yellow); }
+.panel .sub { margin-top: 10px; font-size: 13px; color: var(--muted); line-height: 1.5; }
+.split-value { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 4px; }
+.split-value .bit {
+  font-family: var(--mono); font-size: clamp(18px, 2.4vw, 26px); font-weight: 700;
+}
+.split-value .bit small {
+  display: block; margin-top: 4px; font-size: 10px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--muted); font-weight: 500;
+}
+.bit.mem { color: var(--cyan); }
+.bit.disk { color: var(--yellow); }
+.bit.miss { color: var(--bad); }
+.bit.hit { color: var(--ok); }
+.meter {
+  margin-top: 14px; height: 8px; background: rgba(255,255,255,.08);
+  border: 1px solid rgba(254,0,254,.2); overflow: hidden;
+}
+.meter-fill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--pink), var(--yellow));
+  box-shadow: 0 0 12px rgba(254,0,254,.5); transition: width .45s ease;
+}
+.meter-fill.cyan { background: linear-gradient(90deg, var(--cyan), var(--pink)); }
+.path-text {
+  margin-top: 10px; font-family: var(--mono); font-size: 11px; color: var(--muted); word-break: break-all;
+}
+.status-list {
+  display: flex; flex-direction: column; gap: 6px; max-height: 140px; overflow: auto; margin-top: 4px;
+  scrollbar-width: thin; scrollbar-color: var(--pink) transparent;
+}
+.status-row {
+  display: flex; justify-content: space-between; gap: 12px;
+  font-family: var(--mono); font-size: 13px; padding: 6px 8px;
+  background: rgba(0,0,0,.28); border-left: 2px solid var(--pink);
+}
+.actions {
+  display: flex; flex-wrap: wrap; gap: 10px; margin: 8px 0 22px; padding: 14px;
+  background: rgba(0,0,0,.35); border: 1px dashed rgba(254,0,254,.35);
+}
+.chip-btn {
+  flex: 1 1 140px; min-height: 42px; border: 1px solid rgba(254,0,254,.45);
+  background: rgba(254,0,254,.08); color: var(--ink);
+  font-family: var(--mono); font-size: 12px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase; cursor: pointer; padding: 10px 12px;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.chip-btn:hover:not(:disabled) {
+  background: rgba(254,0,254,.18); border-color: var(--pink); color: #fff;
+}
+.chip-btn:disabled { opacity: .55; cursor: wait; }
+.chip-btn.off {
+  border-color: rgba(255,42,85,.45); background: rgba(255,42,85,.08); color: #ffb0c0;
+}
+.chip-btn.danger:hover:not(:disabled) {
+  border-color: var(--bad); background: rgba(255,42,85,.15);
+}
+.logs-card {
+  padding: 16px 16px 12px; background: rgba(0,0,0,.62);
+  border: 1px solid rgba(0,240,255,.25); box-shadow: 0 0 40px rgba(0,240,255,.06); min-height: 320px;
+}
+.logs-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px;
+}
+.logs-head h2 {
+  margin: 0; font-family: var(--mono); font-size: 12px; letter-spacing: .2em;
+  text-transform: uppercase; color: var(--cyan);
+}
+.logs-head .chip-btn { flex: 0 0 auto; min-width: 140px; }
+.log-stream {
+  margin: 0; height: min(48vh, 460px); overflow: auto;
+  font-family: var(--mono); font-size: 12px; line-height: 1.55;
+  background: rgba(0,8,6,.55); border: 1px solid rgba(0,240,255,.12); padding: 10px;
+  scrollbar-width: thin; scrollbar-color: var(--cyan) transparent;
+}
+.log-entry {
+  display: grid; grid-template-columns: 150px 1fr; gap: 10px;
+  padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,.04);
+}
+.log-entry:last-child { border-bottom: 0; }
+.log-time { color: var(--muted); white-space: nowrap; }
+.log-body { color: #d8ffe8; word-break: break-all; }
+.log-entry.ok .log-body { color: #b8ffd0; }
+.log-entry.warn .log-body { color: #fff0a8; }
+.log-entry.err .log-body { color: #ffb0c5; }
+.log-empty { color: var(--muted); padding: 16px; text-align: center; }
+@media (max-width: 960px) {
+  .zone-grid.traffic, .zone-grid.cache, .zone-grid.system { grid-template-columns: 1fr 1fr; }
+  .panel.hero { grid-column: 1 / -1; }
+}
+@media (max-width: 640px) {
+  .dash { width: calc(100% - 28px); padding-top: 20px; }
+  .hud { flex-direction: column; align-items: flex-start; }
+  .hud-meta { width: 100%; justify-content: flex-start; }
+  .zone-grid.traffic, .zone-grid.cache, .zone-grid.system { grid-template-columns: 1fr; }
+  .log-entry { grid-template-columns: 1fr; gap: 2px; }
+  .log-stream { height: 40vh; }
+}</style>
 </head>
-<body>
-  <header><h1>TMDB 代理监控面板</h1></header>
-  <main>
-    <div id="boot" class="login" aria-label="加载状态" style="display:none">
-      <div class="login-header">
-        <div class="login-logo">
-          <div class="login-logo-mark">T</div>
-          <div class="login-title">正在恢复登录状态</div>
-        </div>
-        <div class="login-sub">Loading</div>
-      </div>
-      <div class="row" style="text-align:left;color:var(--muted)">正在检查 Cookie，请稍候...</div>
-    </div>
-    <div id="login" class="login" aria-label="登录面板" style="display:none">
-      <div class="login-header">
-        <div class="login-logo">
-          <div class="login-logo-mark">T</div>
-          <div class="login-title">TMDB 管理登录</div>
-        </div>
-        <div class="login-sub">Zero Dependency</div>
-      </div>
-      <div class="login-field">
-        <label for="key">管理密钥</label>
-        <input id="key" type="password" placeholder="请输入 ADMIN_API_KEY" autocomplete="current-password" />
-      </div>
-      <div class="login-extra">
-        <input id="keep" type="checkbox" checked disabled />
-        <span>保持登录（基于 Cookie）</span>
-      </div>
-      <button id="btn" aria-label="登录"><span>登录</span></button>
-      <div id="msg" class="row"></div>
-    </div>
-    <section id="content" style="display:none">
-      <div class="cinematic-shell">
-        <nav class="topbar" aria-label="管理页顶部栏">
-          <div class="brand"><span class="brand-dot"></span>TMDB Proxy</div>
-          <div class="topbar-meta">
-            <span class="pill">v<span id="v_version">-</span></span>
-            <span id="connection_state" class="pill warn">等待刷新</span>
+<body class="imgloaded">
+  <div class="glitch-bg" aria-hidden="true"><i></i><i></i><i></i></div>
+  <div class="scanlines" aria-hidden="true"></div>
+  <div class="cp-line top"></div><div class="cp-line bottom"></div>
+  <div class="cp-line left"></div><div class="cp-line right"></div>
+  <div class="cp-corner tl"></div><div class="cp-corner tr"></div>
+  <div class="cp-corner bl"></div><div class="cp-corner br"></div>
+
+  <div id="app">
+    <div v-if="!loggedIn" class="login-wrap">
+      <div class="login">
+        <div class="login-header">
+          <div class="login-logo">
+            <div class="brand-mark">2077</div>
+            <div>
+              <div class="login-title glitch-text" data-text="接入认证">接入认证</div>
+              <div class="login-sub">TMDB 代理 // 认证节点</div>
+            </div>
           </div>
-        </nav>
-        <div class="overview">
-          <section class="hero-copy">
-            <div class="hero-kicker">CINEMATIC PROXY CONSOLE</div>
-            <h2>简单、稳定，<br>让影像更快抵达。</h2>
-            <p>为 TMDB API 与图片资源提供轻量代理和智能缓存。界面只保留真正需要关注的信息，其余功能随用随开。</p>
-            <div class="hero-meta">
-              <span class="pill ok">● 服务运行正常</span>
-              <span class="pill">运行 <span id="v_uptime">-</span></span>
-              <span class="pill">刷新 <span id="v_refreshed">-</span></span>
-            </div>
-          </section>
-          <section class="status-panel" aria-label="实时状态">
-            <div class="status-panel-head"><strong>实时状态</strong><span>每 5 秒更新</span></div>
-            <div class="overview-stats">
-              <div class="overview-stat"><div class="overview-label">总请求</div><div id="v_total" class="overview-value">-</div><div class="overview-note">累计代理请求</div></div>
-              <div class="overview-stat"><div class="overview-label">缓存命中</div><div id="v_hit_rate" class="overview-value">-</div><div class="overview-note">API + 图片缓存</div></div>
-              <div class="overview-stat"><div class="overview-label">实时速率</div><div id="v_rps" class="overview-value">-</div><div class="overview-note">最近一分钟</div></div>
-              <div class="overview-stat"><div class="overview-label">错误率</div><div id="v_error_rate" class="overview-value">-</div><div id="v_err_rate" class="overview-note">请求数: 0 / min</div></div>
-            </div>
-            <div class="trend-line" aria-hidden="true"><svg viewBox="0 0 350 60" preserveAspectRatio="none"><defs><linearGradient id="trend_fill" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#67eac2" stop-opacity=".32"/><stop offset="1" stop-color="#67eac2" stop-opacity="0"/></linearGradient></defs><path d="M0 48 C30 45 40 51 70 37 S110 42 138 28 S178 37 205 22 S247 32 276 16 S320 23 350 8 L350 60 L0 60Z" fill="url(#trend_fill)"/><path d="M0 48 C30 45 40 51 70 37 S110 42 138 28 S178 37 205 22 S247 32 276 16 S320 23 350 8" fill="none" stroke="#72e8c4" stroke-width="2"/></svg></div>
-          </section>
+          <div class="chip-lang">CN</div>
         </div>
-        <nav class="action-dock" aria-label="快捷操作">
-          <button id="btn_refresh" class="dock-btn" type="button">服务概览</button>
-          <button id="btn_changebg" class="dock-btn" type="button">更换背景</button>
-          <button id="btn_details" class="dock-btn" type="button" aria-controls="details_drawer" aria-expanded="false">查看日志</button>
-          <span class="dock-divider" aria-hidden="true"></span>
-          <button id="btn_clear_cache" class="dock-btn primary" type="button">清理缓存</button>
-        </nav>
+        <p class="tagline">唤醒 <b>夜之城</b> 控制台。<br/>输入管理密钥，接入缓存与流量监控。</p>
+        <div class="login-field">
+          <label for="key">管理密钥</label>
+          <input id="key" v-model="adminKey" type="password" placeholder="请输入 ADMIN_API_KEY" autocomplete="current-password" @keydown.enter="login" />
+        </div>
+        <div class="login-extra">
+          <input id="keep" type="checkbox" checked disabled />
+          <span>保持登录（Cookie）</span>
+        </div>
+        <button type="button" :disabled="loginBusy" @click="login">
+          <span>{{ loginBusy ? '鉴权中…' : '确认接入' }}</span>
+        </button>
+        <div class="login-msg" :class="{ err: loginTone === 'err', ok: loginTone === 'ok' }">{{ loginMsg }}</div>
       </div>
-      <button id="drawer_backdrop" class="drawer-backdrop" type="button" aria-label="关闭日志"></button>
-      <aside id="details_drawer" class="details-drawer" aria-hidden="true" aria-label="实时日志">
-        <div class="drawer-head"><div><div class="hero-kicker">LOGS</div><h2>实时日志</h2></div><button id="btn_drawer_close" class="drawer-close" type="button">关闭</button></div>
-        <div id="metric_alert" class="metric-alert" role="status" aria-live="polite"></div>
-        <div class="drawer-actions">
-          <button id="btn_pause" class="chip-btn" type="button">刷新：开</button><button id="btn_scroll" class="chip-btn" type="button">滚动：开</button><button id="btn_clearlogs" class="chip-btn off" type="button">清空显示</button><button id="btn_theme" class="chip-btn" type="button">风格：星云</button><button id="btn_logout" class="chip-btn danger" type="button">退出登录</button>
+    </div>
+
+    <main v-else class="dash">
+      <header class="hud">
+        <div class="hud-brand">
+          <div class="brand-mark sm">TX</div>
+          <div>
+            <h1 class="glitch-text" data-text="TMDB 代理 2077">TMDB 代理 2077</h1>
+            <p>夜之城运维 // 缓存 · 指标 · 访问日志</p>
+          </div>
         </div>
-        <div class="drawer-metrics">
-          <div class="drawer-card"><label>API 请求</label><value id="v_api">-</value><label>API 缓存命中率</label><value id="v_api_rate">-</value><div id="v_api_cache" class="chip-row"></div></div>
-          <div class="drawer-card"><label>图片缓存命中率</label><value id="v_img_rate">-</value><div id="v_img_cache" class="chip-row"></div></div>
-          <div class="drawer-card"><label>磁盘缓存</label><value id="v_disk_usage">-</value><div class="meter"><div id="bar_disk" class="meter-fill"></div></div><div id="v_disk_path" class="stat-sub"></div></div>
-          <div class="drawer-card"><label>内存缓存</label><value id="v_mem_usage">-</value><div class="meter"><div id="bar_mem" class="meter-fill"></div></div><div id="v_mem_count" class="stat-sub"></div></div>
-          <div class="drawer-card" style="grid-column:1/-1"><label>状态码统计</label><div id="v_status_bars" class="status-bars"></div><div id="v_status" class="stat-list"></div></div>
+        <div class="hud-meta">
+          <div class="live-badge"><span class="live-dot"></span>实时 · 5秒</div>
+          <div class="meta-chip">VER {{ version }}</div>
+          <div class="meta-chip">UP {{ uptimeText }}</div>
         </div>
-        <card class="log-panel">
-          <div class="log-toolbar"><div class="log-title-row"><label>最近访问日志</label><span id="v_log_filter_info" class="pill">全部 0/0</span></div></div>
-          <div class="log-filters" role="group" aria-label="日志筛选"><button class="chip-btn log-filter active" data-filter="all">全部</button><button class="chip-btn log-filter" data-filter="5xx">5xx错误</button><button class="chip-btn log-filter" data-filter="4xx">4xx异常</button><button class="chip-btn log-filter" data-filter="slow">慢请求</button><button class="chip-btn log-filter" data-filter="miss">缓存未命中</button><button class="chip-btn log-filter" data-filter="upstream">上游请求</button><button class="chip-btn log-filter" data-filter="api">只看 API</button><button class="chip-btn log-filter" data-filter="image">只看图片</button></div>
-          <div id="v_logs" class="logs" aria-live="polite"></div>
-        </card>
-      </aside>
-    </section>
-  </main>
+      </header>
+
+      <section class="zone">
+        <div class="zone-head">
+          <h2>// 01 流量节点</h2>
+          <span>REQUEST STREAM</span>
+        </div>
+        <div class="zone-grid traffic">
+          <article class="panel hero">
+            <div class="panel-kicker"><div class="stat-icon">Σ</div></div>
+            <label>总请求数</label>
+            <div class="value">{{ fmt(metrics.total) }}</div>
+            <div class="sub">累计通过代理的全部请求</div>
+          </article>
+          <article class="panel">
+            <div class="panel-kicker"><div class="stat-icon y">IMG</div></div>
+            <label>图片请求</label>
+            <div class="value">{{ fmt(metrics.image.total) }}</div>
+            <div class="sub">海报 / 剧照 / 头像</div>
+          </article>
+          <article class="panel">
+            <div class="panel-kicker"><div class="stat-icon c">API</div></div>
+            <label>API 请求</label>
+            <div class="value">{{ fmt(metrics.api.total) }}</div>
+            <div class="sub">所有 /3/* 接口调用</div>
+          </article>
+        </div>
+      </section>
+
+      <section class="zone">
+        <div class="zone-head">
+          <h2>// 02 缓存矩阵</h2>
+          <span>HIT RATIO {{ imgHitRate }} / API {{ apiHitRate }}</span>
+        </div>
+        <div class="zone-grid cache">
+          <article class="panel hero">
+            <div class="panel-kicker"><div class="stat-icon">HIT</div></div>
+            <label>图片缓存 · 内存 / 磁盘 / 未命中</label>
+            <div class="split-value">
+              <div class="bit mem">{{ fmt(metrics.image.mem_hit) }}<small>MEM</small></div>
+              <div class="bit disk">{{ fmt(metrics.image.disk_hit) }}<small>DISK</small></div>
+              <div class="bit miss">{{ fmt(metrics.image.miss) }}<small>MISS</small></div>
+            </div>
+            <div class="sub">实时图片缓存命中情况</div>
+          </article>
+          <article class="panel">
+            <div class="panel-kicker"><div class="stat-icon y">API</div></div>
+            <label>API 缓存命中 / 未命中</label>
+            <div class="split-value">
+              <div class="bit hit">{{ fmt(metrics.api.hit) }}<small>HIT</small></div>
+              <div class="bit miss">{{ fmt(metrics.api.miss) }}<small>MISS</small></div>
+            </div>
+            <div class="sub">API 缓存效率</div>
+          </article>
+          <article class="panel">
+            <div class="panel-kicker"><div class="stat-icon c">%</div></div>
+            <label>综合命中观感</label>
+            <div class="value" style="font-size:clamp(24px,3vw,34px)">IMG {{ imgHitRate }}</div>
+            <div class="sub">API {{ apiHitRate }} · 越高越省上游流量</div>
+          </article>
+        </div>
+      </section>
+
+      <section class="zone">
+        <div class="zone-head">
+          <h2>// 03 系统与控制</h2>
+          <span>STORAGE · HTTP · OPS</span>
+        </div>
+        <div class="zone-grid system">
+          <article class="panel">
+            <div class="panel-kicker"><div class="stat-icon">DSK</div></div>
+            <label>磁盘缓存占用</label>
+            <div class="value" style="font-size:clamp(20px,2.6vw,28px)">{{ diskUsageText }}</div>
+            <div class="meter"><div class="meter-fill" :style="{ width: diskPct + '%' }"></div></div>
+            <div class="path-text">{{ diskPath }}</div>
+          </article>
+          <article class="panel">
+            <div class="panel-kicker"><div class="stat-icon y">MEM</div></div>
+            <label>内存缓存占用</label>
+            <div class="value" style="font-size:clamp(20px,2.6vw,28px)">{{ memUsageText }}</div>
+            <div class="meter"><div class="meter-fill cyan" :style="{ width: memPct + '%' }"></div></div>
+            <div class="path-text">{{ memCountText }}</div>
+          </article>
+          <article class="panel">
+            <div class="panel-kicker"><div class="stat-icon c">HTTP</div></div>
+            <label>状态码统计</label>
+            <div class="status-list">
+              <div v-if="!statusRows.length" class="status-row"><span>暂无数据</span><span>-</span></div>
+              <div v-for="row in statusRows" :key="row.code" class="status-row">
+                <span>{{ row.code }}</span><span>{{ row.count }}</span>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <div class="actions">
+        <button class="chip-btn" type="button" :disabled="bgBusy" @click="changeBg">{{ bgBusy ? '切换中…' : '切换背景' }}</button>
+        <button class="chip-btn danger" type="button" :disabled="clearBusy" @click="clearCache">{{ clearLabel }}</button>
+        <button class="chip-btn" type="button" :class="{ off: !autoScroll }" @click="autoScroll = !autoScroll">自动滚动：{{ autoScroll ? '开' : '关' }}</button>
+        <button class="chip-btn danger" type="button" @click="logout">退出登录</button>
+      </div>
+
+      <section class="logs-card">
+        <div class="logs-head">
+          <h2>// 访问日志终端</h2>
+          <button class="chip-btn" type="button" :class="{ off: !autoScroll }" @click="autoScroll = !autoScroll">自动滚动：{{ autoScroll ? '开' : '关' }}</button>
+        </div>
+        <div class="log-stream" ref="logBox">
+          <div v-if="!logView.length" class="log-empty">等待流量进入夜之城…</div>
+          <div v-for="(l, i) in logView" :key="i" class="log-entry" :class="l.tone">
+            <div class="log-time">{{ l.ts }}</div>
+            <div class="log-body">{{ l.line }}</div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"></script>
   <script>
-    const DEFAULT_BG = '/t/p/original/1RgPyOhN4DRs225BGTlHJqCudII.jpg';
-    const THEMES = [
-      ['aurora', 'Aurora Glass'],
-      ['terminal', 'Terminal'],
-      ['swiss', 'Swiss Editorial']
-    ];
-    const keyInput = document.getElementById('key');
-    const btn = document.getElementById('btn');
-    const msg = document.getElementById('msg');
-    const bootBox = document.getElementById('boot');
-    const loginBox = document.getElementById('login');
-    const content = document.getElementById('content');
-    const btnScroll = document.getElementById('btn_scroll');
-    const btnPause = document.getElementById('btn_pause');
-    const btnRefresh = document.getElementById('btn_refresh');
-    const btnClearCache = document.getElementById('btn_clear_cache');
-    const btnTheme = document.getElementById('btn_theme');
-    const btnLogout = document.getElementById('btn_logout');
-    const btnDetails = document.getElementById('btn_details');
-    const btnDrawerClose = document.getElementById('btn_drawer_close');
-    const detailsDrawer = document.getElementById('details_drawer');
-    const drawerBackdrop = document.getElementById('drawer_backdrop');
-    const metricAlert = document.getElementById('metric_alert');
-    const connectionState = document.getElementById('connection_state');
-    const logFilterInfo = document.getElementById('v_log_filter_info');
-    const logFilterButtons = Array.from(document.querySelectorAll('.log-filter'));
-    const LOG_FILTERS = {
-      all: { label: '全部', test: () => true },
-      '5xx': { label: '5xx错误', test: l => Number(l.status) >= 500 },
-      '4xx': { label: '4xx异常', test: l => Number(l.status) >= 400 && Number(l.status) < 500 },
-      slow: { label: '慢请求', test: l => Number(l.durationMs) >= 1000 },
-      miss: { label: '缓存未命中', test: l => String(l.cache || '').toUpperCase().includes('MISS') },
-      api: { label: '只看 API', test: l => String(l.type || '').toLowerCase().split(':').includes('api') },
-      image: { label: '只看图片', test: l => String(l.type || '').toLowerCase().split(':').includes('image') },
-      upstream: { label: '上游请求', test: l => String(l.type || '').toLowerCase().startsWith('upstream:') }
-    };
+const { createApp, ref, computed, reactive, onMounted, onUnmounted, nextTick, watch } = Vue;
+
+function getCookie(name) {
+  const value = document.cookie.split('; ').find(row => row.startsWith(name + '='));
+  return value ? decodeURIComponent(value.split('=')[1]) : '';
+}
+function clearCookie(name) {
+  document.cookie = name + '=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+}
+function setPosterBg(path) {
+  if (!path) return;
+  const url = "url('/t/p/original" + path + "')";
+  document.documentElement.style.setProperty('--poster', url);
+  document.body.style.backgroundImage =
+    'linear-gradient(180deg, rgba(0,0,0,.55), rgba(6,0,10,.82) 55%, rgba(0,0,0,.9)),' +
+    'radial-gradient(ellipse at 50% 20%, rgba(254,0,254,.22), transparent 50%),' +
+    'radial-gradient(circle at 80% 80%, rgba(0,240,255,.08), transparent 40%),' +
+    'radial-gradient(circle at 50% 50%, #5a0080 0%, #050005 62%),' +
+    url;
+}
+function logTone(status) {
+  const code = Number(status);
+  if (code >= 500) return 'err';
+  if (code >= 400) return 'warn';
+  if (code >= 200 && code < 400) return 'ok';
+  return '';
+}
+function emptyMetrics() {
+  return {
+    total: 0,
+    image: { total: 0, mem_hit: 0, disk_hit: 0, miss: 0 },
+    api: { total: 0, hit: 0, miss: 0 },
+    byStatus: {}
+  };
+}
+function hitRate(hit, miss) {
+  const h = Number(hit) || 0;
+  const m = Number(miss) || 0;
+  const t = h + m;
+  if (!t) return '--';
+  return ((h / t) * 100).toFixed(1) + '%';
+}
+
+const SESSION_KEY = 'tmdb_admin_key';
+
+createApp({
+  setup() {
+    const loggedIn = ref(false);
+    const adminKey = ref('');
+    const loginMsg = ref('');
+    const loginTone = ref('');
+    const loginBusy = ref(false);
+    const version = ref('-');
+    const uptimeText = ref('-');
+    const metrics = reactive(emptyMetrics());
+    const diskCache = reactive({ enabled: false, bytes: 0, max_bytes: 0, dir: '' });
+    const memCache = reactive({ size: 0, bytes: 0, max_bytes: 0 });
+    const logs = ref([]);
+    const autoScroll = ref(true);
+    const bgLoaded = ref(false);
+    const bgBusy = ref(false);
+    const clearBusy = ref(false);
+    const clearLabel = ref('清空缓存');
+    const logBox = ref(null);
     let refreshTimer = null;
-    let autoScroll = true;
-    let refreshPaused = false;
-    let currentLogFilter = 'all';
-    let latestLogRows = [];
-    let healthTick = 0;
-    let bgLoaded = false;
+    let sessionKey = '';
 
-    function setTheme(theme) {
-      const found = THEMES.find(([key]) => key === theme) || THEMES[0];
-      document.documentElement.dataset.theme = found[0];
-      localStorage.setItem('tmdb_theme', found[0]);
-      btnTheme.textContent = `风格：${found[1]}`;
+    function authHeaders(extra) {
+      const headers = Object.assign({}, extra || {});
+      if (sessionKey) headers['X-Admin-Key'] = sessionKey;
+      return headers;
     }
 
-    function setBackground(url) {
-      document.documentElement.style.setProperty('--bg-image', `url('${url}')`);
+    function adminFetch(url, options) {
+      options = options || {};
+      return fetch(url, {
+        credentials: 'same-origin',
+        method: options.method || 'GET',
+        headers: authHeaders(options.headers || {}),
+        body: options.body,
+      });
     }
 
-    function setConnection(kind, text) {
-      connectionState.className = `pill ${kind}`;
-      connectionState.textContent = text;
-    }
+    const statusRows = computed(() => {
+      return Object.entries(metrics.byStatus || {})
+        .map(([code, count]) => ({ code, count }))
+        .sort((a, b) => Number(a.code) - Number(b.code));
+    });
+    const imgHitRate = computed(() => {
+      const hit = (metrics.image.mem_hit || 0) + (metrics.image.disk_hit || 0);
+      return hitRate(hit, metrics.image.miss);
+    });
+    const apiHitRate = computed(() => hitRate(metrics.api.hit, metrics.api.miss));
+    const diskPct = computed(() => {
+      if (!diskCache.enabled || !diskCache.max_bytes) return 0;
+      return Math.min(100, (diskCache.bytes / diskCache.max_bytes) * 100);
+    });
+    const memPct = computed(() => {
+      if (!memCache.max_bytes) return 0;
+      return Math.min(100, (memCache.bytes / memCache.max_bytes) * 100);
+    });
+    const diskUsageText = computed(() => {
+      if (!diskCache.enabled) return '已关闭';
+      const usedGB = diskCache.bytes / (1024 * 1024 * 1024);
+      const maxGB = diskCache.max_bytes / (1024 * 1024 * 1024);
+      return usedGB.toFixed(2) + ' GB / ' + maxGB.toFixed(2) + ' GB';
+    });
+    const diskPath = computed(() => diskCache.enabled ? (diskCache.dir || '') : '');
+    const memUsageText = computed(() => {
+      if (!memCache.max_bytes) return '-';
+      const usedMB = memCache.bytes / (1024 * 1024);
+      const maxMB = memCache.max_bytes / (1024 * 1024);
+      return usedMB.toFixed(1) + ' MB / ' + maxMB.toFixed(0) + ' MB';
+    });
+    const memCountText = computed(() => {
+      if (!memCache.max_bytes) return '';
+      return '缓存图片: ' + (memCache.size || 0) + ' 张';
+    });
+    const logView = computed(() => {
+      return (logs.value || []).map(l => {
+        const ts = new Date(l.time).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false });
+        const line = l.method + ' ' + l.path + '  状态:' + l.status + '  耗时:' + l.durationMs + 'ms  IP:' + l.ip + '  缓存:' + (l.cache || '-');
+        return { ts, line, tone: logTone(l.status) };
+      });
+    });
 
-    function setDrawer(open) {
-      detailsDrawer.classList.toggle('open', open);
-      drawerBackdrop.classList.toggle('open', open);
-      detailsDrawer.setAttribute('aria-hidden', String(!open));
-      btnDetails.setAttribute('aria-expanded', String(open));
-      document.body.classList.toggle('drawer-open', open);
-    }
-
-    function formatNumber(value) {
-      return new Intl.NumberFormat('zh-CN').format(Number(value) || 0);
-    }
-
-    function formatBytes(value) {
-      const bytes = Number(value) || 0;
-      if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
-      if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-      return `${bytes} B`;
-    }
-
-    function formatPct(part, total) {
-      if (!total) return '0.0%';
-      return `${((part / total) * 100).toFixed(1)}%`;
-    }
-
-    function setChips(id, items) {
-      const box = document.getElementById(id);
-      box.textContent = '';
-      for (const item of items) {
-        const chip = document.createElement('span');
-        chip.className = `mini-chip ${item.kind || ''}`.trim();
-        chip.textContent = `${item.label}: ${item.value}`;
-        box.appendChild(chip);
-      }
-    }
-
-    async function fetchJSON(url, options) {
-      const resp = await fetch(url, options);
-      if (!resp.ok) throw new Error(resp.status === 404 ? '登录失效或未授权' : `请求失败 ${resp.status}`);
-      return resp.json();
+    function fmt(n) {
+      if (n === undefined || n === null || n === '') return '-';
+      const num = Number(n);
+      if (Number.isNaN(num)) return String(n);
+      return num.toLocaleString('zh-CN');
     }
 
     async function login() {
-      const key = keyInput.value.trim();
+      const key = adminKey.value.trim();
       if (!key) {
-        msg.textContent = '请输入管理密钥';
+        loginMsg.value = '请输入管理密钥';
+        loginTone.value = 'err';
         return;
       }
-      btn.disabled = true;
-      msg.textContent = '登录中...';
+      loginBusy.value = true;
+      loginMsg.value = '鉴权中…';
+      loginTone.value = '';
       try {
         const resp = await fetch('/admin/auth', {
           method: 'POST',
+          credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ admin_key: key })
         });
         const data = await resp.json().catch(() => ({}));
         if (!resp.ok || !data.ok) {
-          msg.textContent = '密钥错误或未授权';
-          btn.disabled = false;
+          let msg = '密钥错误或未授权';
+          if (resp.status === 403) msg = data.message || '跨站请求被拒绝，请用反代同源地址访问';
+          else if (resp.status === 429) msg = data.message || '尝试过多，请 60 秒后再试';
+          else if (resp.status === 500) msg = data.message || '服务未配置 ADMIN_API_KEY';
+          else if (data.message) msg = data.message;
+          loginMsg.value = msg + ' [' + resp.status + ']';
+          loginTone.value = 'err';
+          loginBusy.value = false;
           return;
         }
-        msg.textContent = '登录成功';
-        btn.disabled = false;
-        bootBox.style.display = 'none';
-        loginBox.style.display = 'none';
-        content.style.display = 'block';
-        loadDashboard({ force: true });
-        if (refreshTimer) clearInterval(refreshTimer);
-        refreshTimer = setInterval(() => loadDashboard(), 5000);
+        sessionKey = key;
+        try { sessionStorage.setItem(SESSION_KEY, key); } catch (e) {}
+        document.cookie = 'admin_key=' + encodeURIComponent(key) + '; Path=/; SameSite=Lax';
+        loginMsg.value = '登录成功';
+        loginTone.value = 'ok';
+        loggedIn.value = true;
+        loginBusy.value = false;
+        startPolling();
       } catch (e) {
         console.error(e);
-        msg.textContent = '登录失败，请稍后重试';
-        btn.disabled = false;
+        loginMsg.value = '登录失败，请稍后重试（网络/反代）';
+        loginTone.value = 'err';
+        loginBusy.value = false;
       }
     }
 
-    async function loadRandomBg(force = false) {
-      if (bgLoaded && !force) return;
+    async function loadRandomBg(force) {
+      if (bgLoaded.value && !force) return;
       if (!force) {
         const stored = localStorage.getItem('tmdb_bg');
         if (stored) {
           try {
-            const { path, ts } = JSON.parse(stored);
-            if (path && Date.now() - ts < 86400000) {
-              setBackground(`/t/p/original${path}`);
-              bgLoaded = true;
+            const parsed = JSON.parse(stored);
+            if (parsed.path && Date.now() - parsed.ts < 86400000) {
+              setPosterBg(parsed.path);
+              bgLoaded.value = true;
               return;
             }
-          } catch {}
+          } catch (e) {}
         }
       }
       try {
-        const data = await fetchJSON('/admin/random-bg');
+        const resp = await adminFetch('/admin/random-bg');
+        if (resp.status === 401 || resp.status === 404) return;
+        const data = await resp.json();
         if (data.backdrop_path) {
-          setBackground(`/t/p/original${data.backdrop_path}`);
+          setPosterBg(data.backdrop_path);
           localStorage.setItem('tmdb_bg', JSON.stringify({ path: data.backdrop_path, ts: Date.now() }));
-          bgLoaded = true;
+          bgLoaded.value = true;
         }
       } catch (e) {
         console.error('loadRandomBg error', e);
       }
     }
 
-    function classifyStatus(status) {
-      const code = Number(status) || 0;
-      if (code >= 500) return 'bad';
-      if (code >= 400) return 'warn';
-      return 'ok';
-    }
-
-    function classifyCache(cache) {
-      const text = String(cache || '-').toUpperCase();
-      if (text === 'UPSTREAM') return 'miss';
-      if (text.includes('HIT')) return 'hit';
-      if (text.includes('MISS')) return 'miss';
-      return '';
-    }
-
-    function formatLogType(type) {
-      const text = String(type || 'other').toLowerCase();
-      if (text === 'upstream:image') return '上游图片';
-      if (text === 'upstream:api') return '上游API';
-      if (text === 'image') return '图片';
-      if (text === 'api') return 'API';
-      return text.toUpperCase();
-    }
-
-    function formatCacheLabel(cache) {
-      const text = String(cache || '-').toUpperCase();
-      if (text === 'UPSTREAM') return '上游';
-      return text;
-    }
-
-    function copyText(text) {
-      if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand('copy');
-      textarea.remove();
-      return Promise.resolve();
-    }
-
-    function toLogNode(l) {
-      const ts = new Date(l.time).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false });
-      const isError = Number(l.status) >= 400;
-      const entry = document.createElement('div');
-      entry.className = `log-entry ${isError ? 'error' : ''}`.trim();
-
-      const time = document.createElement('div');
-      time.className = 'log-time';
-      time.textContent = ts;
-
-      const status = document.createElement('div');
-      status.className = `log-pill ${classifyStatus(l.status)}`;
-      status.textContent = String(l.status || '-');
-
-      const type = document.createElement('div');
-      type.className = 'log-pill';
-      type.title = String(l.type || 'other');
-      type.textContent = formatLogType(l.type);
-
-      const cache = document.createElement('div');
-      cache.className = `log-pill ${classifyCache(l.cache)}`;
-      cache.title = String(l.cache || '-');
-      cache.textContent = formatCacheLabel(l.cache);
-
-      const body = document.createElement('div');
-      body.className = `log-body ${isError ? 'expanded' : ''}`.trim();
-      body.title = `${l.method} ${l.path}`;
-      const byteInfo = String(l.type || '').toLowerCase().startsWith('upstream:') ? ` · ${formatBytes(l.bytes)}` : '';
-      body.textContent = `${l.method} ${l.path} · ${l.durationMs}ms${byteInfo} · ${l.ip}`;
-      body.addEventListener('click', () => body.classList.toggle('expanded'));
-
-      const copy = document.createElement('button');
-      copy.type = 'button';
-      copy.className = 'log-copy';
-      copy.textContent = '复制';
-      copy.title = '复制完整请求路径';
-      copy.addEventListener('click', async (event) => {
-        event.stopPropagation();
-        await copyText(String(l.path || ''));
-        copy.textContent = '已复制';
-        copy.classList.add('done');
-        setTimeout(() => {
-          copy.textContent = '复制';
-          copy.classList.remove('done');
-        }, 1200);
-      });
-
-      entry.append(time, status, type, cache, body, copy);
-      return entry;
-    }
-
-    function updateAlert(diskPct, memPct) {
-      if (diskPct >= 90 || memPct >= 90) {
-        metricAlert.style.display = 'block';
-        metricAlert.textContent = diskPct >= 90
-          ? '磁盘缓存使用率已超过 90%，后台会按容量上限自动清理旧缓存。'
-          : '图片内存缓存使用率已超过 90%，LRU 会自动淘汰旧图片缓存。';
-        return;
-      }
-      metricAlert.style.display = 'none';
-      metricAlert.textContent = '';
-    }
-
-    function renderStatusBars(statusMap) {
-      const statusBars = document.getElementById('v_status_bars');
-      statusBars.textContent = '';
-      const statusEntries = Object.entries(statusMap || {}).sort((a, b) => Number(a[0]) - Number(b[0]));
-      const maxCount = statusEntries.reduce((mx, [, count]) => Math.max(mx, Number(count) || 0), 0) || 1;
-      if (statusEntries.length === 0) {
-        const empty = document.createElement('div');
-        empty.className = 'status-row';
-        empty.textContent = '暂无数据';
-        statusBars.appendChild(empty);
-        return;
-      }
-      for (const [code, count] of statusEntries.slice(0, 8)) {
-        const n = Number(count) || 0;
-        const h = Math.max(8, Math.round((n / maxCount) * 100));
-        const bar = document.createElement('div');
-        const codeNum = Number(code) || 0;
-        bar.className = `status-bar ${codeNum >= 500 ? 'err' : codeNum >= 400 ? 'warn' : ''}`.trim();
-        bar.style.height = `${h}%`;
-        const countEl = document.createElement('span');
-        countEl.className = 'status-bar-count';
-        countEl.textContent = n;
-        const labelEl = document.createElement('span');
-        labelEl.className = 'status-bar-label';
-        labelEl.textContent = code;
-        bar.append(countEl, labelEl);
-        statusBars.appendChild(bar);
-      }
-    }
-
-    function getFilteredLogs(rows) {
-      const filter = LOG_FILTERS[currentLogFilter] || LOG_FILTERS.all;
-      return rows.filter(filter.test);
-    }
-
-    function updateLogFilterInfo(filteredCount, totalCount) {
-      const filter = LOG_FILTERS[currentLogFilter] || LOG_FILTERS.all;
-      logFilterInfo.textContent = `${filter.label} ${filteredCount}/${totalCount}`;
-      logFilterInfo.className = `pill ${currentLogFilter === '5xx' ? 'danger' : ['4xx', 'slow', 'miss'].includes(currentLogFilter) ? 'warn' : ''}`.trim();
-      for (const button of logFilterButtons) {
-        const key = button.dataset.filter || 'all';
-        const item = LOG_FILTERS[key] || LOG_FILTERS.all;
-        const count = latestLogRows.filter(item.test).length;
-        button.textContent = `${item.label} ${count}`;
-        button.classList.toggle('active', key === currentLogFilter);
-      }
-    }
-
-    function renderLogs(rows) {
-      latestLogRows = Array.isArray(rows) ? rows : [];
-      const logBox = document.getElementById('v_logs');
-      const filtered = getFilteredLogs(latestLogRows).slice(-200);
-      updateLogFilterInfo(filtered.length, latestLogRows.length);
-      logBox.textContent = '';
-
-      if (latestLogRows.length === 0 || filtered.length === 0) {
-        const entry = document.createElement('div');
-        entry.className = 'log-entry';
-        const body = document.createElement('div');
-        body.className = 'log-body';
-        body.textContent = latestLogRows.length === 0 ? '暂无访问日志' : '当前筛选无匹配日志';
-        entry.appendChild(body);
-        logBox.appendChild(entry);
-        return;
-      }
-
-      filtered.forEach(l => logBox.appendChild(toLogNode(l)));
-      if (autoScroll) logBox.scrollTop = logBox.scrollHeight;
-    }
-
-    async function loadDashboard(options = {}) {
-      if (refreshPaused && !options.force) return;
+    async function loadDashboard() {
       try {
-        if (options.force) setConnection('warn', '正在刷新');
-        loadRandomBg();
-        const needHealth = healthTick % 6 === 0;
-        healthTick++;
-        const [m, logs, health] = await Promise.all([
-          fetchJSON('/admin/metrics'),
-          fetchJSON('/admin/logs?limit=200'),
-          needHealth ? fetchJSON('/health').catch(() => ({})) : Promise.resolve(null)
-        ]);
+        loadRandomBg(false);
+        const mRes = await adminFetch('/admin/metrics');
+        const logRes = await adminFetch('/admin/logs?limit=200');
+        let health = {};
+        try {
+          const healthRes = await fetch('/health', { credentials: 'same-origin' });
+          health = await healthRes.json();
+        } catch (e) {}
 
-        if (health && health.version) document.getElementById('v_version').textContent = health.version;
-        if (health && health.uptime) {
-          const h = Math.floor(health.uptime / 3600);
-          const m2 = Math.floor((health.uptime % 3600) / 60);
-          document.getElementById('v_uptime').textContent = `${h}小时${m2}分钟`;
-        }
-
-        document.getElementById('v_total').textContent = formatNumber(m.metrics.total);
-        document.getElementById('v_api').textContent = formatNumber(m.metrics.api.total);
-
-        const imageHit = Number(m.metrics.image.mem_hit || 0) + Number(m.metrics.image.disk_hit || 0);
-        const imageMiss = Number(m.metrics.image.miss || 0);
-        const imageTotal = imageHit + imageMiss;
-        document.getElementById('v_img_rate').textContent = formatPct(imageHit, imageTotal);
-        setChips('v_img_cache', [
-          { label: '内存', value: formatNumber(m.metrics.image.mem_hit), kind: 'hit' },
-          { label: '磁盘', value: formatNumber(m.metrics.image.disk_hit), kind: 'hit' },
-          { label: '未命中', value: formatNumber(imageMiss), kind: 'miss' }
-        ]);
-
-        const apiHit = Number(m.metrics.api.hit || 0);
-        const apiMiss = Number(m.metrics.api.miss || 0);
-        document.getElementById('v_api_rate').textContent = formatPct(apiHit, apiHit + apiMiss);
-        const combinedHits = apiHit + imageHit;
-        const combinedTotal = combinedHits + apiMiss + imageMiss;
-        document.getElementById('v_hit_rate').textContent = formatPct(combinedHits, combinedTotal);
-        setChips('v_api_cache', [
-          { label: '命中', value: formatNumber(apiHit), kind: 'hit' },
-          { label: '未命中', value: formatNumber(apiMiss), kind: 'miss' }
-        ]);
-
-        let diskPct = 0;
-        if (m.disk_cache && m.disk_cache.enabled) {
-          const usedGB = m.disk_cache.bytes / (1024 * 1024 * 1024);
-          const maxGB = m.disk_cache.max_bytes / (1024 * 1024 * 1024);
-          diskPct = maxGB > 0 ? Math.min(100, (usedGB / maxGB) * 100) : 0;
-          document.getElementById('v_disk_usage').textContent = `${usedGB.toFixed(2)} GB / ${maxGB.toFixed(2)} GB`;
-          document.getElementById('v_disk_path').textContent = `目录: ${m.disk_cache.dir}`;
-          const barDisk = document.getElementById('bar_disk');
-          barDisk.style.width = diskPct + '%';
-          barDisk.classList.toggle('warn', diskPct >= 80 && diskPct < 90);
-          barDisk.classList.toggle('danger', diskPct >= 90);
-        } else {
-          document.getElementById('v_disk_usage').textContent = '已关闭';
-          document.getElementById('v_disk_path').textContent = '';
-          document.getElementById('bar_disk').style.width = '0%';
-        }
-
-        let memPct = 0;
-        if (m.mem_cache) {
-          const usedMB = m.mem_cache.bytes / (1024 * 1024);
-          const maxMB = m.mem_cache.max_bytes / (1024 * 1024);
-          memPct = maxMB > 0 ? Math.min(100, (usedMB / maxMB) * 100) : 0;
-          document.getElementById('v_mem_usage').textContent = `${usedMB.toFixed(1)} MB / ${maxMB.toFixed(0)} MB`;
-          document.getElementById('v_mem_count').textContent = `缓存图片: ${formatNumber(m.mem_cache.size)} 张`;
-          const barMem = document.getElementById('bar_mem');
-          barMem.style.width = memPct + '%';
-          barMem.classList.toggle('warn', memPct >= 80 && memPct < 90);
-          barMem.classList.toggle('danger', memPct >= 90);
-        } else {
-          document.getElementById('v_mem_usage').textContent = '-';
-          document.getElementById('v_mem_count').textContent = '';
-          document.getElementById('bar_mem').style.width = '0%';
-        }
-        updateAlert(diskPct, memPct);
-        renderStatusBars(m.metrics.byStatus);
-
-        const rows = Array.isArray(logs) ? logs : [];
-        if (rows.length > 0) {
-          const now = Date.now();
-          const win = rows.filter(l => now - Number(l.time || 0) <= 60000);
-          const total1m = win.length;
-          const err1m = win.filter(l => Number(l.status) >= 400).length;
-          const rps = total1m / 60;
-          const errRate = total1m > 0 ? (err1m / total1m) * 100 : 0;
-          document.getElementById('v_rps').textContent = `${rps.toFixed(2)} req/s`;
-          document.getElementById('v_err_rate').textContent = `请求数: ${total1m} / min · 错误率: ${errRate.toFixed(1)}%`;
-          document.getElementById('v_error_rate').textContent = `${errRate.toFixed(2)}%`;
-        } else {
-          document.getElementById('v_rps').textContent = '0.00 req/s';
-          document.getElementById('v_err_rate').textContent = '请求数: 0 / min · 错误率: 0.0%';
-          document.getElementById('v_error_rate').textContent = '0.00%';
-        }
-        renderLogs(rows);
-        document.getElementById('v_refreshed').textContent = new Date().toLocaleTimeString('zh-CN', { hour12: false });
-        setConnection('ok', '连接正常');
-      } catch (e) {
-        console.error('loadDashboard error', e);
-        setConnection('danger', e.message || '连接失败');
-        metricAlert.style.display = 'block';
-        metricAlert.textContent = `${e.message || '连接失败'}，5 秒后自动重试。`;
-      }
-    }
-
-    btn.addEventListener('click', login);
-    keyInput.addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
-    btnRefresh.addEventListener('click', () => loadDashboard({ force: true }));
-    btnDetails.addEventListener('click', () => setDrawer(btnDetails.getAttribute('aria-expanded') !== 'true'));
-    btnDrawerClose.addEventListener('click', () => setDrawer(false));
-    drawerBackdrop.addEventListener('click', () => setDrawer(false));
-    document.addEventListener('keydown', event => { if (event.key === 'Escape') setDrawer(false); });
-    btnClearCache.addEventListener('click', async () => {
-      if (!confirm('确定清除全部缓存吗？')) return;
-      const originalText = btnClearCache.textContent;
-      btnClearCache.disabled = true;
-      btnClearCache.textContent = '清除中...';
-      try {
-        await fetchJSON('/admin/clear-cache?type=all', { method: 'POST' });
-        await loadDashboard({ force: true });
-      } catch (e) {
-        console.error('清除缓存失败', e);
-        setConnection('danger', e.message || '清除缓存失败');
-      } finally {
-        btnClearCache.disabled = false;
-        btnClearCache.textContent = originalText;
-      }
-    });
-    btnTheme.addEventListener('click', () => {
-      const current = document.documentElement.dataset.theme || THEMES[0][0];
-      const idx = THEMES.findIndex(([key]) => key === current);
-      setTheme(THEMES[(idx + 1) % THEMES.length][0]);
-    });
-    btnPause.addEventListener('click', () => {
-      refreshPaused = !refreshPaused;
-      btnPause.textContent = refreshPaused ? '刷新：停' : '刷新：开';
-      btnPause.classList.toggle('off', refreshPaused);
-      setConnection(refreshPaused ? 'warn' : 'ok', refreshPaused ? '已暂停刷新' : '连接正常');
-    });
-    btnScroll.addEventListener('click', () => {
-      autoScroll = !autoScroll;
-      btnScroll.textContent = autoScroll ? '滚动：开' : '滚动：关';
-      btnScroll.classList.toggle('off', !autoScroll);
-    });
-    for (const button of logFilterButtons) {
-      button.addEventListener('click', () => {
-        currentLogFilter = button.dataset.filter || 'all';
-        renderLogs(latestLogRows);
-      });
-    }
-    document.getElementById('btn_clearlogs').addEventListener('click', () => {
-      latestLogRows = [];
-      renderLogs([]);
-    });
-    document.getElementById('btn_changebg').addEventListener('click', async () => {
-      try {
-        const data = await fetchJSON('/admin/random-bg');
-        if (data.backdrop_path) {
-          setBackground(`/t/p/original${data.backdrop_path}`);
-          localStorage.setItem('tmdb_bg', JSON.stringify({ path: data.backdrop_path, ts: Date.now() }));
-          bgLoaded = true;
-        }
-      } catch (e) {
-        console.error('切换背景失败', e);
-        setConnection('danger', '背景切换失败');
-      }
-    });
-
-    btnLogout.addEventListener('click', async () => {
-      try {
-        await fetch('/admin/logout', { method: 'POST' });
-      } catch (e) {
-        console.error('退出登录失败', e);
-      }
-      if (refreshTimer) clearInterval(refreshTimer);
-      autoScroll = true;
-      refreshPaused = false;
-      bgLoaded = false;
-      currentLogFilter = 'all';
-      latestLogRows = [];
-      renderLogs([]);
-      healthTick = 0;
-      btnPause.textContent = '刷新：开';
-      btnPause.classList.remove('off');
-      btnScroll.textContent = '滚动：开';
-      btnScroll.classList.remove('off');
-      bootBox.style.display = 'none';
-      content.style.display = 'none';
-      loginBox.style.display = 'block';
-      msg.textContent = '';
-      keyInput.value = '';
-      btn.disabled = false;
-      setDrawer(false);
-      setBackground(DEFAULT_BG);
-    });
-
-    (async function init() {
-      setTheme(localStorage.getItem('tmdb_theme') || 'aurora');
-      try {
-        const resp = await fetch('/admin/status');
-        bootBox.style.display = 'none';
-        if (!resp.ok) {
-          loginBox.style.display = 'block';
+        if (mRes.status === 401 || mRes.status === 404) {
+          logout(true);
+          loginMsg.value = '会话失效，请重新登录';
+          loginTone.value = 'err';
           return;
         }
-        loginBox.style.display = 'none';
-        content.style.display = 'block';
-        loadDashboard({ force: true });
-        if (refreshTimer) clearInterval(refreshTimer);
-        refreshTimer = setInterval(() => loadDashboard(), 5000);
-      } catch {
-        bootBox.style.display = 'none';
-        loginBox.style.display = 'block';
+
+        const m = await mRes.json();
+        const logData = await logRes.json();
+
+        if (health.version) version.value = health.version;
+        if (health.uptime != null) {
+          const h = Math.floor(health.uptime / 3600);
+          const m2 = Math.floor((health.uptime % 3600) / 60);
+          uptimeText.value = h + '小时' + m2 + '分钟';
+        }
+
+        const src = m.metrics || {};
+        metrics.total = src.total || 0;
+        metrics.image = Object.assign({ total: 0, mem_hit: 0, disk_hit: 0, miss: 0 }, src.image || {});
+        metrics.api = Object.assign({ total: 0, hit: 0, miss: 0 }, src.api || {});
+        metrics.byStatus = src.byStatus || {};
+
+        if (m.disk_cache) {
+          diskCache.enabled = !!m.disk_cache.enabled;
+          diskCache.bytes = m.disk_cache.bytes || 0;
+          diskCache.max_bytes = m.disk_cache.max_bytes || 0;
+          diskCache.dir = m.disk_cache.dir || '';
+        } else {
+          diskCache.enabled = false;
+        }
+
+        if (m.mem_cache) {
+          memCache.size = m.mem_cache.size || 0;
+          memCache.bytes = m.mem_cache.bytes || 0;
+          memCache.max_bytes = m.mem_cache.max_bytes || 0;
+        }
+
+        logs.value = Array.isArray(logData) ? logData : [];
+        await nextTick();
+        if (autoScroll.value && logBox.value) {
+          logBox.value.scrollTop = logBox.value.scrollHeight;
+        }
+      } catch (e) {
+        console.error('loadDashboard error', e);
       }
-    })();
-  </script>
+    }
+
+    function startPolling() {
+      loadDashboard();
+      if (refreshTimer) clearInterval(refreshTimer);
+      refreshTimer = setInterval(loadDashboard, 5000);
+    }
+
+    async function changeBg() {
+      bgBusy.value = true;
+      try {
+        const resp = await adminFetch('/admin/random-bg');
+        const data = await resp.json();
+        if (data.backdrop_path) {
+          localStorage.setItem('tmdb_bg', JSON.stringify({ path: data.backdrop_path, ts: Date.now() }));
+          setPosterBg(data.backdrop_path);
+          bgLoaded.value = true;
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        bgBusy.value = false;
+      }
+    }
+
+    async function clearCache() {
+      if (!confirm('确定清空全部缓存（API + 内存图片 + 磁盘图片）？')) return;
+      clearBusy.value = true;
+      clearLabel.value = '清理中…';
+      try {
+        const resp = await adminFetch('/admin/clear-cache?type=all');
+        const data = await resp.json();
+        clearLabel.value = data.ok
+          ? ('已清 ' + (data.api_cleared || 0) + '/' + (data.mem_cleared || 0) + '/' + (data.disk_cleared || 0))
+          : '清理失败';
+        await loadDashboard();
+      } catch (e) {
+        clearLabel.value = '清理失败';
+      }
+      setTimeout(() => {
+        clearLabel.value = '清空缓存';
+        clearBusy.value = false;
+      }, 2200);
+    }
+
+    function logout(soft) {
+      clearCookie('admin_key');
+      clearCookie('admin_session');
+      if (refreshTimer) clearInterval(refreshTimer);
+      refreshTimer = null;
+      autoScroll.value = true;
+      bgLoaded.value = false;
+      loggedIn.value = false;
+      if (!soft) {
+        loginMsg.value = '';
+        loginTone.value = '';
+      }
+      adminKey.value = '';
+      loginBusy.value = false;
+      sessionKey = '';
+      try { sessionStorage.removeItem(SESSION_KEY); } catch (e) {}
+      Object.assign(metrics, emptyMetrics());
+      logs.value = [];
+      document.documentElement.style.removeProperty('--poster');
+      document.body.style.backgroundImage = '';
+    }
+
+    watch(autoScroll, async (v) => {
+      if (v) {
+        await nextTick();
+        if (logBox.value) logBox.value.scrollTop = logBox.value.scrollHeight;
+      }
+    });
+
+    onMounted(async () => {
+      let existing = '';
+      try { existing = sessionStorage.getItem(SESSION_KEY) || ''; } catch (e) {}
+      if (!existing) existing = getCookie('admin_key') || '';
+      if (existing) {
+        sessionKey = existing;
+        try {
+          const probe = await adminFetch('/admin/metrics');
+          if (probe.ok) {
+            loggedIn.value = true;
+            startPolling();
+            return;
+          }
+        } catch (e) {}
+        sessionKey = '';
+        try { sessionStorage.removeItem(SESSION_KEY); } catch (e) {}
+      }
+    });
+
+    onUnmounted(() => {
+      if (refreshTimer) clearInterval(refreshTimer);
+    });
+
+    return {
+      loggedIn, adminKey, loginMsg, loginTone, loginBusy,
+      version, uptimeText, metrics, statusRows,
+      imgHitRate, apiHitRate,
+      diskPct, memPct, diskUsageText, diskPath, memUsageText, memCountText,
+      logs, logView, autoScroll, logBox,
+      bgBusy, clearBusy, clearLabel,
+      fmt, login, changeBg, clearCache, logout
+    };
+  }
+}).mount('#app');
+</script>
 </body>
 </html>
