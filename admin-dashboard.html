@@ -454,11 +454,11 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
         </section>
         <nav class="action-dock" aria-label="快捷操作">
           <button id="btn_refresh" class="dock-btn" type="button" @click="loadDashboard({force:true})">立即刷新</button>
-          <button id="btn_details" class="dock-btn" type="button" aria-controls="details_drawer" aria-expanded="false" @click="setDrawer(!drawerOpen)">查看日志</button>
           <button id="btn_bg_mode" class="dock-btn" type="button" @click="cycleBgMode">壁纸：{{ bgModeLabel }}</button>
           <button id="btn_changebg" class="dock-btn" type="button" @click="changeBg">{{ bgActionLabel }}</button>
           <span class="dock-divider" aria-hidden="true"></span>
           <button id="btn_clear_cache" class="dock-btn primary" type="button" :disabled="clearBusy" @click="clearCache">{{ clearLabel }}</button>
+          <button id="btn_details" class="dock-btn" type="button" aria-controls="details_drawer" aria-expanded="false" @click="setDrawer(!drawerOpen)">查看日志</button>
         </nav>
         <button id="drawer_backdrop" class="drawer-backdrop" :class="{open:drawerOpen}" type="button" aria-label="关闭日志" @click="setDrawer(false)"></button>
         <aside id="details_drawer" class="details-drawer" :class="{open:drawerOpen}" :aria-hidden="drawerOpen?'false':'true'" aria-label="实时日志">
