@@ -82,12 +82,38 @@
 .metric-alert{display:none;margin:0 0 12px;padding:10px 12px;border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);background:color-mix(in srgb,var(--warn) 12%,transparent);color:var(--warn);font-family:var(--mono);font-size:12px}
 .drawer-actions{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}.drawer-metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}.drawer-card{padding:12px;border:1px solid color-mix(in srgb,var(--pink) 25%,transparent);background:rgba(0,0,0,.28)}
 .log-toolbar{display:flex;justify-content:space-between;gap:10px;margin-bottom:8px}.log-filters{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
-.log-entry{display:grid;grid-template-columns:150px 56px 72px 64px 1fr;gap:8px;padding:7px 6px;border-bottom:1px solid rgba(255,255,255,.05)}.log-entry.error .log-body{color:#ffb0c5}
-.log-time{color:var(--muted);white-space:nowrap}.log-pill{display:inline-flex;align-items:center;justify-content:center;padding:2px 6px;border:1px solid color-mix(in srgb,var(--line) 80%,transparent);font-size:10px;letter-spacing:.04em}
-.log-pill.ok{color:var(--ok)}.log-pill.warn{color:var(--warn)}.log-pill.err{color:var(--bad)}.log-pill.hit{color:var(--ok)}.log-pill.miss{color:var(--bad)}.log-pill.upstream{color:var(--yellow)}
-.log-body{color:#d8ffe8;word-break:break-all}.log-empty{color:var(--muted);padding:16px;text-align:center}
+.log-entry{display:grid;grid-template-columns:74px 52px 64px 72px minmax(0,1fr) 58px 64px;gap:6px 8px;align-items:center;padding:8px 8px;border-bottom:1px solid rgba(255,255,255,.05);border-left:2px solid transparent}
+.log-entry:hover{background:rgba(255,255,255,.03)}
+.log-entry.active{background:color-mix(in srgb,var(--pink) 14%,transparent);outline:1px solid color-mix(in srgb,var(--pink) 45%,transparent);border-left-color:var(--pink)}
+.log-entry.error{border-left-color:var(--bad)}
+.log-entry.slow{border-left-color:var(--yellow)}
+.log-entry.error .log-path{color:#ffb0c5}
+.log-time{color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums;font-size:11px}
+.log-pill{display:inline-flex;align-items:center;justify-content:center;min-width:0;padding:2px 6px;border:1px solid color-mix(in srgb,var(--line) 80%,transparent);font-size:10px;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.log-pill.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,transparent)}
+.log-pill.warn{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,transparent)}
+.log-pill.err{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 45%,transparent)}
+.log-pill.hit{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,transparent)}
+.log-pill.miss{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 45%,transparent)}
+.log-pill.upstream{color:var(--yellow);border-color:color-mix(in srgb,var(--yellow) 45%,transparent)}
+.log-pill.type{color:var(--cyan);border-color:color-mix(in srgb,var(--cyan) 40%,transparent)}
+.log-path{color:#e8fff4;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+.log-path .method{color:var(--cyan);margin-right:6px;font-weight:700}
+.log-ms,.log-bytes{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.log-ms.slow{color:var(--yellow)}
+.log-empty{color:var(--muted);padding:16px;text-align:center}
+.log-detail .kv dd.mono{font-family:var(--mono)}
+.log-detail .pill-row{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.log-detail .path-block{margin:0 0 12px;padding:10px;border:1px solid color-mix(in srgb,var(--cyan) 22%,transparent);background:rgba(0,0,0,.25);word-break:break-all;font-family:var(--mono);font-size:12px;color:#e8fff4}
+@media (max-width:1100px){
+  .log-entry{grid-template-columns:64px 48px 56px minmax(0,1fr) 52px; }
+  .log-entry .log-bytes,.log-entry .log-pill.type{display:none}
+}
 @media (max-width:1100px){.zone-grid.traffic{grid-template-columns:1fr 1fr}.zone-grid.cache,.zone-grid.system{grid-template-columns:1fr 1fr}.drawer-metrics{grid-template-columns:1fr}}
-@media (max-width:720px){.dash{width:calc(100% - 24px)}.hud{flex-direction:column;align-items:flex-start}.zone-grid.traffic,.zone-grid.cache,.zone-grid.system{grid-template-columns:1fr}.log-entry{grid-template-columns:1fr;gap:3px}.details-drawer{max-width:100%}}
+@media (max-width:720px){.dash{width:calc(100% - 24px)}.hud{flex-direction:column;align-items:flex-start}.zone-grid.traffic,.zone-grid.cache,.zone-grid.system{grid-template-columns:1fr}.log-entry{grid-template-columns:1fr 1fr 1fr;gap:4px 8px}
+.log-entry .log-path{grid-column:1/-1;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.log-entry .log-time{grid-column:1/-1}
+.details-drawer{max-width:100%}}
 
 /* Night City wallpaper — PRESS-like cyber city, mouse interactive */
 .bg-fx{
@@ -499,11 +525,14 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
                 <div v-if="!filteredLogs.length" class="log-empty">{{ latestLogRows.length ? '当前筛选无匹配日志' : '暂无访问日志 · 有请求后这里会滚动更新' }}</div>
                 <div v-else class="vlog-spacer" :style="{height: virtualTotalH + 'px'}">
                   <div class="vlog-view" :style="{transform: 'translateY(' + virtualOffset + 'px)'}">
-                    <div v-for="item in virtualLogs" :key="item.key" class="log-entry" :class="{error:Number(item.l.status)>=400, active: selectedLogKey===item.key}" @click="selectLog(item.l, item.idx)">
-                      <div class="log-time">{{ formatTs(item.l.time) }}</div>
+                    <div v-for="item in virtualLogs" :key="item.key" class="log-entry" :class="{error:Number(item.l.status)>=400, slow:Number(item.l.durationMs)>=1000, active: selectedLogKey===item.key}" @click="selectLog(item.l, item.idx)" :title="(item.l.method||'') + ' ' + (item.l.path||'')">
+                      <div class="log-time">{{ formatLogTime(item.l.time) }}</div>
                       <div class="log-pill" :class="classifyStatus(item.l.status)">{{ item.l.status || '-' }}</div>
+                      <div class="log-pill type" :title="String(item.l.type||'')">{{ formatLogType(item.l.type) }}</div>
                       <div class="log-pill" :class="classifyCache(item.l.cache)" :title="String(item.l.cache||'-')">{{ formatCacheLabel(item.l.cache) }}</div>
-                      <div class="log-body">{{ item.l.method }} {{ item.l.path }} · {{ item.l.durationMs }}ms · {{ formatBytes(item.l.bytes)/* formatBytes(l.bytes) */ }}</div>
+                      <div class="log-path"><span class="method">{{ item.l.method || '-' }}</span>{{ shortPath(item.l.path) }}</div>
+                      <div class="log-ms" :class="{slow:Number(item.l.durationMs)>=1000}">{{ formatDuration(item.l.durationMs) }}</div>
+                      <div class="log-bytes">{{ formatBytes(item.l.bytes)/* formatBytes(l.bytes) */ }}</div>
                     </div>
                   </div>
                 </div>
@@ -511,17 +540,21 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
               <aside class="log-detail">
                 <h3>条目详情</h3>
                 <template v-if="selectedLog">
+                  <div class="pill-row">
+                    <span class="log-pill" :class="classifyStatus(selectedLog.status)">{{ selectedLog.status || '-' }}</span>
+                    <span class="log-pill type">{{ formatLogType(selectedLog.type) }}</span>
+                    <span class="log-pill" :class="classifyCache(selectedLog.cache)">{{ formatCacheLabel(selectedLog.cache) }}</span>
+                    <span class="log-pill">{{ selectedLog.method || '-' }}</span>
+                  </div>
+                  <div class="path-block" :title="selectedLog.path || ''">{{ selectedLog.path || '-' }}</div>
                   <dl class="kv">
-                    <dt>时间</dt><dd>{{ formatTs(selectedLog.time) }}</dd>
-                    <dt>方法</dt><dd>{{ selectedLog.method || '-' }}</dd>
-                    <dt>路径</dt><dd>{{ selectedLog.path || '-' }}</dd>
-                    <dt>状态</dt><dd>{{ selectedLog.status || '-' }}</dd>
-                    <dt>类型</dt><dd>{{ formatLogType(selectedLog.type) }} ({{ selectedLog.type || 'other' }})</dd>
-                    <dt>缓存</dt><dd>{{ formatCacheLabel(selectedLog.cache) }} / {{ selectedLog.cache || '-' }}</dd>
-                    <dt>耗时</dt><dd>{{ selectedLog.durationMs != null ? selectedLog.durationMs + ' ms' : '-' }}</dd>
-                    <dt>大小</dt><dd>{{ formatBytes(selectedLog.bytes) }}</dd>
-                    <dt>IP</dt><dd>{{ selectedLog.ip || '-' }}</dd>
-                    <dt>上游</dt><dd>{{ selectedLog.upstream || selectedLog.target || selectedLog.host || (String(selectedLog.type||'').startsWith('upstream') ? 'UPSTREAM' : '-') }}</dd>
+                    <dt>时间</dt><dd class="mono">{{ formatTs(selectedLog.time) }}</dd>
+                    <dt>类型</dt><dd>{{ formatLogType(selectedLog.type) }} <span style="color:var(--muted)">({{ selectedLog.type || 'other' }})</span></dd>
+                    <dt>缓存</dt><dd>{{ formatCacheLabel(selectedLog.cache) }} <span style="color:var(--muted)">/ {{ selectedLog.cache || '-' }}</span></dd>
+                    <dt>耗时</dt><dd class="mono">{{ selectedLog.durationMs != null ? selectedLog.durationMs + ' ms' : '-' }}</dd>
+                    <dt>大小</dt><dd class="mono">{{ formatBytes(selectedLog.bytes) }}</dd>
+                    <dt>IP</dt><dd class="mono">{{ selectedLog.ip || '-' }}</dd>
+                    <dt>上游</dt><dd class="mono">{{ selectedLog.upstream || selectedLog.target || selectedLog.host || (String(selectedLog.type||'').startsWith('upstream') ? 'UPSTREAM' : '-') }}</dd>
                   </dl>
                 </template>
                 <div v-else class="log-empty">点击列表日志查看 path / 缓存 / 字节等详情<div class="empty-hint" style="margin-top:10px">窄屏下详情在列表下方</div></div>
@@ -577,6 +610,10 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
     function formatCacheLabel(cache) {
       const text = String(cache || '-').toUpperCase();
       if (text === 'UPSTREAM') return '上游';
+      if (text === 'MEM-HIT' || text === 'MEM_HIT' || text === 'MEMORY-HIT') return '内存命中';
+      if (text === 'DISK-HIT' || text === 'DISK_HIT') return '磁盘命中';
+      if (text === 'HIT' || text === 'API-HIT' || text === 'CACHE-HIT') return '命中';
+      if (text.includes('MISS')) return '未命中';
       return text;
     }
     function formatNumber(value) {
@@ -660,8 +697,8 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
           return Number.isFinite(n) ? n : 90;
         })());
         const logScrollTop = ref(0);
-        const LOG_ROW_H = 58;
-        const LOG_OVERSCAN = 8;
+        const LOG_ROW_H = 44;
+        const LOG_OVERSCAN = 10;
         const rpsText = ref('-');
         const errorRateText = ref('-');
         const errRateNote = ref('请求数: 0');
@@ -773,6 +810,23 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
           updateAlert(diskPct.value, memPct.value);
         }
         function formatTs(time) { return new Date(time).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }); }
+        function formatLogTime(time) {
+          const d = new Date(time);
+          if (Number.isNaN(d.getTime())) return '-';
+          return d.toLocaleTimeString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false });
+        }
+        function formatDuration(ms) {
+          if (ms == null || ms === '') return '-';
+          const n = Number(ms);
+          if (!Number.isFinite(n)) return '-';
+          if (n >= 1000) return (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 's';
+          return Math.round(n) + 'ms';
+        }
+        function shortPath(path) {
+          const s = String(path || '-');
+          if (s.length <= 64) return s;
+          return s.slice(0, 28) + '…' + s.slice(-28);
+        }
         function setTheme(theme) {
           const found = THEMES.find(([key]) => key === theme) || THEMES[0];
           themeKey.value = found[0];
@@ -810,10 +864,24 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
           if (path) setBackground('/t/p/w1280' + path);
         }
         function setConnection(kind, text) { connection.kind = kind; connection.text = text; }
-        function setDrawer(open) { drawerOpen.value = !!open;
-          document.body.classList.toggle('drawer-open', !!open);
-          const btn = document.getElementById('btn_details');
-          if (btn) btn.setAttribute('aria-expanded', String(!!open));
+        function setDrawer(open) {
+          drawerOpen.value = !!open;
+          try {
+            const btn = document.getElementById('btn_details');
+            if (btn) btn.setAttribute('aria-expanded', drawerOpen.value ? 'true' : 'false');
+          } catch (e) {}
+          document.body.classList.toggle('drawer-open', drawerOpen.value);
+          if (drawerOpen.value) {
+            if (!selectedLog.value && filteredLogs.value.length) {
+              const last = filteredLogs.value.length - 1;
+              selectLog(filteredLogs.value[last], last);
+            }
+            nextTick(() => {
+              try {
+                if (autoScroll.value && logBox.value) logBox.value.scrollTop = logBox.value.scrollHeight;
+              } catch (e) {}
+            });
+          }
         }
         function updateAlert(disk, mem) {
           const thr = Math.min(99, Math.max(50, Number(alertPct.value) || 90));
@@ -1064,7 +1132,7 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
           latestLogRows, filteredLogs, currentLogFilter, logFilterInfo, autoScroll, refreshPaused,
           drawerOpen, alertText, clearBusy, clearLabel, themeLabel, bgModeLabel, bgActionLabel, logBox, bootingMetrics, display, selectedLog, selectedLogKey, imgHitPct, apiHitPct,
           alertPct, virtualLogs, virtualOffset, virtualTotalH,
-          fmt, formatTs, formatBytes, formatLogType, formatCacheLabel, classifyStatus, classifyCache, logKey, selectLog, onLogScroll, persistAlertPct,
+          fmt, formatTs, formatLogTime, formatDuration, shortPath, formatBytes, formatLogType, formatCacheLabel, classifyStatus, classifyCache, logKey, selectLog, onLogScroll, persistAlertPct,
           login, loadDashboard, changeBg, cycleBgMode, clearCache, togglePause, clearLogs, cycleTheme, setDrawer, logout
         };
       }
