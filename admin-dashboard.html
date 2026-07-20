@@ -84,9 +84,24 @@
 .log-body{color:#d8ffe8;word-break:break-all}.log-empty{color:var(--muted);padding:16px;text-align:center}
 @media (max-width:1100px){.zone-grid.traffic{grid-template-columns:1fr 1fr}.zone-grid.cache,.zone-grid.system{grid-template-columns:1fr 1fr}.drawer-metrics{grid-template-columns:1fr}}
 @media (max-width:720px){.dash{width:calc(100% - 24px)}.hud{flex-direction:column;align-items:flex-start}.zone-grid.traffic,.zone-grid.cache,.zone-grid.system{grid-template-columns:1fr}.log-entry{grid-template-columns:1fr;gap:3px}.details-drawer{max-width:100%}}
+
+/* Night City wallpaper system */
+.bg-fx{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.bg-fx .layer{position:absolute;inset:-8%;background-repeat:no-repeat;background-size:cover;background-position:center}
+.bg-fx .haze{background:radial-gradient(ellipse at 20% 10%, rgba(254,0,254,.22), transparent 42%),radial-gradient(ellipse at 80% 90%, rgba(0,240,255,.14), transparent 40%),linear-gradient(180deg, rgba(0,0,0,.35), rgba(5,0,10,.75) 55%, rgba(0,0,0,.9));mix-blend-mode:screen;animation:haze-drift 18s ease-in-out infinite alternate}
+.bg-fx .scan{background:repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.08) 2px, rgba(0,0,0,.08) 4px);opacity:.28}
+.bg-fx .vignette{background:radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,.55) 100%)}
+@keyframes haze-drift{from{transform:translate3d(-1.5%,-1%,0) scale(1.04)}to{transform:translate3d(1.5%,1%,0) scale(1.08)}}
+body.wall-night-0{--bg-image:linear-gradient(160deg,#120018 0%,#2a0050 35%,#050005 70%),radial-gradient(circle at 70% 20%,rgba(254,0,254,.35),transparent 35%),radial-gradient(circle at 20% 80%,rgba(0,240,255,.2),transparent 40%)}
+body.wall-night-1{--bg-image:linear-gradient(200deg,#001018 0%,#001a33 40%,#050005 75%),radial-gradient(circle at 30% 30%,rgba(0,240,255,.28),transparent 38%),radial-gradient(circle at 85% 70%,rgba(254,0,254,.22),transparent 42%)}
+body.wall-night-2{--bg-image:linear-gradient(135deg,#1a0500 0%,#3a0a20 40%,#050005 80%),radial-gradient(circle at 50% 20%,rgba(252,238,10,.12),transparent 30%),radial-gradient(circle at 10% 90%,rgba(254,0,254,.25),transparent 40%)}
+body.wall-night-3{--bg-image:linear-gradient(180deg,#050010 0%,#180028 45%,#000 100%),radial-gradient(circle at 50% 100%,rgba(254,0,254,.3),transparent 45%),radial-gradient(circle at 0% 0%,rgba(0,240,255,.18),transparent 35%)}
+body.bg-mode-tmdb .bg-fx .haze{opacity:.75}
+
 @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important}}
 </style>
 </head><body>
+  <div class="bg-fx" aria-hidden="true"><div class="layer haze"></div><div class="layer scan"></div><div class="layer vignette"></div></div>
   <div class="scanlines" aria-hidden="true"></div>
   <div class="cp-line top"></div><div class="cp-line bottom"></div>
   <div class="cp-line left"></div><div class="cp-line right"></div>
@@ -165,7 +180,8 @@
         </section>
         <nav class="action-dock" aria-label="快捷操作">
           <button id="btn_refresh" class="dock-btn" type="button" @click="loadDashboard({force:true})">立即刷新</button>
-          <button id="btn_changebg" class="dock-btn" type="button" @click="changeBg">更换背景</button>
+          <button id="btn_bg_mode" class="dock-btn" type="button" @click="cycleBgMode">壁纸：{{ bgModeLabel }}</button>
+          <button id="btn_changebg" class="dock-btn" type="button" @click="changeBg">{{ bgActionLabel }}</button>
           <button id="btn_details" class="dock-btn" type="button" aria-controls="details_drawer" aria-expanded="false" @click="setDrawer(!drawerOpen)">查看日志</button>
           <span class="dock-divider" aria-hidden="true"></span>
           <button id="btn_clear_cache" class="dock-btn primary" type="button" :disabled="clearBusy" @click="clearCache">{{ clearLabel }}</button>
@@ -216,6 +232,14 @@
   </div>
   <script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"></script>
   <script>    const DEFAULT_BG = '/t/p/original/1RgPyOhN4DRs225BGTlHJqCudII.jpg';
+    const NIGHT_WALLS = [
+      { id: 'neon-alley', label: '霓虹巷' },
+      { id: 'cyan-district', label: '青区' },
+      { id: 'amber-core', label: '琥珀核' },
+      { id: 'void-spire', label: '虚空塔' }
+    ];
+    const BG_MODE_KEY = 'tmdb_bg_mode';
+    const NIGHT_WALL_KEY = 'tmdb_night_wall';
     const THEMES = [
       ['aurora', 'Aurora Glass'],
       ['terminal', 'Terminal'],
@@ -306,6 +330,8 @@
         const clearBusy = ref(false);
         const clearLabel = ref('清理缓存');
         const themeKey = ref(localStorage.getItem('tmdb_theme') || 'aurora');
+        const bgMode = ref((localStorage.getItem(BG_MODE_KEY) === 'tmdb') ? 'tmdb' : 'night');
+        const nightWallIndex = ref(Number(localStorage.getItem(NIGHT_WALL_KEY) || 0) || 0);
         const logBox = ref(null);
         const rpsText = ref('-');
         const errorRateText = ref('-');
@@ -365,7 +391,28 @@
           const idx = THEMES.findIndex(([key]) => key === themeKey.value);
           setTheme(THEMES[(idx + 1) % THEMES.length][0]);
         }
-        function setBackground(url) { document.documentElement.style.setProperty('--bg-image', "url('" + url + "')"); }
+        function clearNightWallClasses() {
+          for (let i = 0; i < NIGHT_WALLS.length; i++) document.body.classList.remove('wall-night-' + i);
+        }
+        function setBackground(url) {
+          if (url) document.documentElement.style.setProperty('--bg-image', "url('" + url + "')");
+        }
+        function applyNightWall(index) {
+          const i = ((index % NIGHT_WALLS.length) + NIGHT_WALLS.length) % NIGHT_WALLS.length;
+          nightWallIndex.value = i;
+          clearNightWallClasses();
+          document.body.classList.add('wall-night-' + i);
+          document.body.classList.remove('bg-mode-tmdb');
+          document.body.classList.add('bg-mode-night');
+          document.documentElement.style.setProperty('--bg-image', 'none');
+          try { localStorage.setItem(NIGHT_WALL_KEY, String(i)); } catch (e) {}
+        }
+        function applyTmdbWall(path) {
+          clearNightWallClasses();
+          document.body.classList.add('bg-mode-tmdb');
+          document.body.classList.remove('bg-mode-night');
+          if (path) setBackground('/t/p/original' + path);
+        }
         function setConnection(kind, text) { connection.kind = kind; connection.text = text; }
         function setDrawer(open) {
           drawerOpen.value = !!open;
@@ -415,6 +462,12 @@
         }
 
         async function loadRandomBg(force) {
+          // night city mode: fixed stylized walls, no network
+          if (bgMode.value !== 'tmdb') {
+            applyNightWall(nightWallIndex.value);
+            bgLoaded = true;
+            return;
+          }
           if (bgLoaded && !force) return;
           if (!force) {
             const stored = localStorage.getItem('tmdb_bg');
@@ -422,7 +475,7 @@
               try {
                 const parsed = JSON.parse(stored);
                 if (parsed.path && Date.now() - parsed.ts < 86400000) {
-                  setBackground('/t/p/original' + parsed.path); bgLoaded = true; return;
+                  applyTmdbWall(parsed.path); bgLoaded = true; return;
                 }
               } catch (e) {}
             }
@@ -430,7 +483,7 @@
           try {
             const data = await fetchJSON('/admin/random-bg', { headers: authHeaders() });
             if (data.backdrop_path) {
-              setBackground('/t/p/original' + data.backdrop_path);
+              applyTmdbWall(data.backdrop_path);
               localStorage.setItem('tmdb_bg', JSON.stringify({ path: data.backdrop_path, ts: Date.now() }));
               bgLoaded = true;
             }
@@ -502,13 +555,27 @@
           refreshTimer = setInterval(() => loadDashboard(), 5000);
         }
 
+        function cycleBgMode() {
+          bgMode.value = bgMode.value === 'tmdb' ? 'night' : 'tmdb';
+          try { localStorage.setItem(BG_MODE_KEY, bgMode.value); } catch (e) {}
+          bgLoaded = false;
+          loadRandomBg(true);
+          setConnection('ok', bgMode.value === 'tmdb' ? '壁纸模式：TMDB 随机海报' : '壁纸模式：夜之城固定主题');
+        }
         async function changeBg() {
+          if (bgMode.value !== 'tmdb') {
+            applyNightWall(nightWallIndex.value + 1);
+            bgLoaded = true;
+            setConnection('ok', '夜之城壁纸：' + NIGHT_WALLS[nightWallIndex.value].label);
+            return;
+          }
           try {
             const data = await fetchJSON('/admin/random-bg', { headers: authHeaders() });
             if (data.backdrop_path) {
-              setBackground('/t/p/original' + data.backdrop_path);
+              applyTmdbWall(data.backdrop_path);
               localStorage.setItem('tmdb_bg', JSON.stringify({ path: data.backdrop_path, ts: Date.now() }));
               bgLoaded = true;
+              setConnection('ok', '已切换 TMDB 海报背景');
             }
           } catch (e) { console.error(e); setConnection('danger', '背景切换失败'); }
         }
@@ -539,7 +606,7 @@
           currentLogFilter.value = 'all'; latestLogRows.value = []; healthTick = 0; sessionKey = '';
           try { sessionStorage.removeItem('tmdb_admin_key'); } catch (e) {}
           document.cookie = 'admin_key=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
-          setDrawer(false); setBackground(DEFAULT_BG); phase.value = 'login';
+          setDrawer(false); bgMode.value = (localStorage.getItem(BG_MODE_KEY) === 'tmdb') ? 'tmdb' : 'night'; bgLoaded = false; if (bgMode.value === 'tmdb') setBackground(DEFAULT_BG); else applyNightWall(nightWallIndex.value); phase.value = 'login';
           if (!soft) { loginMsg.value = ''; loginTone.value = ''; }
           adminKey.value = ''; loginBusy.value = false;
         }
@@ -549,6 +616,7 @@
 
         onMounted(async () => {
           setTheme(themeKey.value);
+          if (bgMode.value === 'night') applyNightWall(nightWallIndex.value); else document.body.classList.add('bg-mode-tmdb');
           document.addEventListener('keydown', onKeydown);
           try { const existing = sessionStorage.getItem('tmdb_admin_key') || ''; if (existing) sessionKey = existing; } catch (e) {}
           try {
@@ -564,9 +632,9 @@
           metrics, statusRows, statusBars, imgHitRate, apiHitRate, hitRateText, rpsText, errorRateText, errRateNote,
           diskPct, memPct, diskUsageText, diskPath, memUsageText, memCountText, imgCacheChips, apiCacheChips,
           latestLogRows, filteredLogs, currentLogFilter, logFilterInfo, autoScroll, refreshPaused,
-          drawerOpen, alertText, clearBusy, clearLabel, themeLabel, logBox,
+          drawerOpen, alertText, clearBusy, clearLabel, themeLabel, bgModeLabel, bgActionLabel, logBox,
           fmt, formatTs, formatBytes, formatLogType, formatCacheLabel, classifyStatus, classifyCache,
-          login, loadDashboard, changeBg, clearCache, togglePause, clearLogs, cycleTheme, setDrawer, logout
+          login, loadDashboard, changeBg, cycleBgMode, clearCache, togglePause, clearLogs, cycleTheme, setDrawer, logout
         };
       }
     }).mount('#app');
