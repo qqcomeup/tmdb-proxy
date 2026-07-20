@@ -12,10 +12,15 @@
       try {
         const theme = localStorage.getItem('tmdb_theme') || 'aurora';
         document.documentElement.dataset.theme = theme;
-        const stored = localStorage.getItem('tmdb_bg');
-        if (stored) {
-          const { path } = JSON.parse(stored);
-          if (path) document.write('<style>:root{--bg-image:url("/t/p/original' + path + '")}</style>');
+        const mode = localStorage.getItem('tmdb_bg_mode');
+        if (mode === 'tmdb') {
+          const stored = localStorage.getItem('tmdb_bg');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed && parsed.path) {
+              document.documentElement.style.setProperty('--bg-image', 'url("/t/p/original' + parsed.path + '")');
+            }
+          }
         }
       } catch (e) {}
     })();
@@ -232,25 +237,7 @@ body.bg-mode-tmdb .bg-fx .haze{opacity:.75}
   </div>
   <script src="/admin/vendor/vue.global.prod.js"></script>
   <script>
-    // CDN fallback if local vendor missing
-    if (typeof Vue === 'undefined') {
-      document.write('<script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"><\/script>');
-    }
-  </script>
-  <script>
-    window.addEventListener('DOMContentLoaded', function () {
-      setTimeout(function () {
-        if (typeof Vue === 'undefined') {
-          var box = document.getElementById('boot') || document.body;
-          var tip = document.createElement('div');
-          tip.style.cssText = 'position:fixed;inset:auto 16px 16px 16px;z-index:9999;padding:14px 16px;background:rgba(20,0,30,.92);border:1px solid #fe00fe;color:#f6ecf6;font:13px/1.5 JetBrains Mono,monospace';
-          tip.innerHTML = 'Vue 未加载：请通过 <b>http://127.0.0.1:8088/admin/dashboard</b> 访问，不要直接双击本地 html 文件。';
-          document.body.appendChild(tip);
-        }
-      }, 800);
-    });
-  </script>
-  <script>    const DEFAULT_BG = '/t/p/original/1RgPyOhN4DRs225BGTlHJqCudII.jpg';
+    const DEFAULT_BG = '/t/p/original/1RgPyOhN4DRs225BGTlHJqCudII.jpg';
     const NIGHT_WALLS = [
       { id: 'neon-alley', label: '霓虹巷' },
       { id: 'cyan-district', label: '青区' },
@@ -321,6 +308,16 @@ body.bg-mode-tmdb .bg-fx .haze{opacity:.75}
       return resp.json();
     }
 
+    if (typeof Vue === 'undefined') {
+      console.error('Vue failed to load from /admin/vendor/vue.global.prod.js');
+      document.addEventListener('DOMContentLoaded', function () {
+        var tip = document.createElement('div');
+        tip.setAttribute('id', 'vue-load-error');
+        tip.textContent = 'Vue 未加载：请打开 http://127.0.0.1:8088/admin/dashboard 并硬刷新 (Ctrl+F5)';
+        tip.style.cssText = 'position:fixed;left:16px;right:16px;bottom:16px;z-index:9999;padding:14px 16px;background:rgba(20,0,30,.95);border:1px solid #fe00fe;color:#f6ecf6;font:13px/1.5 monospace';
+        document.body.appendChild(tip);
+      });
+    } else {
     const { createApp, ref, computed, reactive, onMounted, onUnmounted, nextTick, watch } = Vue;    createApp({
       setup() {
         const phase = ref('boot');
@@ -362,6 +359,8 @@ body.bg-mode-tmdb .bg-fx .haze{opacity:.75}
         let sessionKey = '';
 
         const themeLabel = computed(() => (THEMES.find(([k]) => k === themeKey.value) || THEMES[0])[1]);
+        const bgModeLabel = computed(() => bgMode.value === 'tmdb' ? 'TMDB' : '夜之城');
+        const bgActionLabel = computed(() => bgMode.value === 'tmdb' ? '随机海报' : ('下一张·' + (NIGHT_WALLS[nightWallIndex.value] || NIGHT_WALLS[0]).label));
         const statusRows = computed(() => Object.entries(metrics.byStatus || {})
           .map(([code, count]) => ({ code, count }))
           .sort((a, b) => Number(a.code) - Number(b.code)));
@@ -638,9 +637,11 @@ body.bg-mode-tmdb .bg-fx .haze{opacity:.75}
           if (bgMode.value === 'night') applyNightWall(nightWallIndex.value); else document.body.classList.add('bg-mode-tmdb');
           document.addEventListener('keydown', onKeydown);
           try { const existing = sessionStorage.getItem('tmdb_admin_key') || ''; if (existing) sessionKey = existing; } catch (e) {}
+          // Only probe when we already have a key; unauthenticated /admin/status is 404 by design
+          if (!sessionKey) { phase.value = 'login'; return; }
           try {
-            const resp = await fetch('/admin/status', { credentials: 'same-origin', headers: authHeaders() });
-            if (!resp.ok) { phase.value = 'login'; return; }
+            const resp = await fetch('/admin/metrics', { credentials: 'same-origin', headers: authHeaders() });
+            if (!resp.ok) { sessionKey = ''; phase.value = 'login'; return; }
             phase.value = 'dash'; startPolling(true);
           } catch (e) { phase.value = 'login'; }
         });
@@ -657,6 +658,7 @@ body.bg-mode-tmdb .bg-fx .haze{opacity:.75}
         };
       }
     }).mount('#app');
+    } // end Vue available
   </script>
 </body>
 </html>
