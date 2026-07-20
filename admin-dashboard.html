@@ -90,99 +90,194 @@
 @media (max-width:1100px){.zone-grid.traffic{grid-template-columns:1fr 1fr}.zone-grid.cache,.zone-grid.system{grid-template-columns:1fr 1fr}.drawer-metrics{grid-template-columns:1fr}}
 @media (max-width:720px){.dash{width:calc(100% - 24px)}.hud{flex-direction:column;align-items:flex-start}.zone-grid.traffic,.zone-grid.cache,.zone-grid.system{grid-template-columns:1fr}.log-entry{grid-template-columns:1fr;gap:3px}.details-drawer{max-width:100%}}
 
-/* Night City wallpaper system — dynamic cyberpunk */
-.bg-fx{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
-.bg-fx .layer{position:absolute;inset:0}
-.bg-fx .base{background:var(--wall-base, linear-gradient(160deg,#120018,#050005));background-size:cover;background-position:center;transform:scale(1.08);animation:wall-ken 28s ease-in-out infinite alternate}
-.bg-fx .grid{
-  background-image:
-    linear-gradient(rgba(0,240,255,.07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(254,0,254,.06) 1px, transparent 1px);
-  background-size:72px 72px;
-  transform-origin:50% 100%;
-  transform:perspective(500px) rotateX(58deg) translateY(-8%) scale(1.6);
-  mask-image:linear-gradient(to top, rgba(0,0,0,.85), transparent 78%);
-  animation:grid-scroll 18s linear infinite;
-  opacity:.55;
+/* Night City wallpaper — PRESS-like cyber city, mouse interactive */
+.bg-fx{
+  position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;
+  --mx:0.5; --my:0.45; --tx:0px; --ty:0px;
+  background:#02010a;
 }
-.bg-fx .orbs{
+.bg-fx .layer{position:absolute;inset:-12%;will-change:transform}
+.bg-fx .sky{
+  inset:0;
   background:
-    radial-gradient(circle at var(--orb1-x,20%) var(--orb1-y,25%), color-mix(in srgb, var(--wall-a, #fe00fe) 55%, transparent), transparent 28%),
-    radial-gradient(circle at var(--orb2-x,78%) var(--orb2-y,70%), color-mix(in srgb, var(--wall-b, #00f0ff) 45%, transparent), transparent 32%),
-    radial-gradient(circle at 50% 110%, color-mix(in srgb, var(--wall-c, #fcee0a) 18%, transparent), transparent 42%);
-  filter:blur(2px);
-  animation:orb-drift 14s ease-in-out infinite alternate;
+    radial-gradient(ellipse 120% 70% at 50% 100%, color-mix(in srgb, var(--wall-glow, #fe00fe) 28%, transparent), transparent 55%),
+    radial-gradient(circle at 18% 22%, color-mix(in srgb, var(--wall-a, #fe00fe) 35%, transparent), transparent 26%),
+    radial-gradient(circle at 82% 18%, color-mix(in srgb, var(--wall-b, #00f0ff) 30%, transparent), transparent 24%),
+    linear-gradient(180deg, #050018 0%, #12002a 38%, #1a0530 62%, #050010 100%);
+  transform:translate3d(calc(var(--tx) * .15), calc(var(--ty) * .1), 0) scale(1.08);
+  transition:transform .12s linear;
+}
+.bg-fx .stars{
+  inset:0;
+  background-image:
+    radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,.7), transparent),
+    radial-gradient(1px 1px at 30% 40%, rgba(0,240,255,.8), transparent),
+    radial-gradient(1.5px 1.5px at 50% 15%, rgba(255,255,255,.9), transparent),
+    radial-gradient(1px 1px at 70% 30%, rgba(254,0,254,.75), transparent),
+    radial-gradient(1px 1px at 85% 45%, rgba(255,255,255,.55), transparent),
+    radial-gradient(1.2px 1.2px at 22% 55%, rgba(0,240,255,.5), transparent),
+    radial-gradient(1px 1px at 60% 8%, rgba(255,255,255,.65), transparent);
+  opacity:.55;
+  animation:stars-twinkle 4.5s ease-in-out infinite alternate;
+  transform:translate3d(calc(var(--tx) * .08), calc(var(--ty) * .05), 0);
+}
+.bg-fx .smog{
+  inset:-5%;
+  background:
+    radial-gradient(ellipse at 30% 80%, color-mix(in srgb, var(--wall-a, #fe00fe) 22%, transparent), transparent 40%),
+    radial-gradient(ellipse at 75% 85%, color-mix(in srgb, var(--wall-b, #00f0ff) 18%, transparent), transparent 42%);
+  filter:blur(8px);
+  transform:translate3d(calc(var(--tx) * .25), calc(var(--ty) * .18), 0);
+  transition:transform .14s linear;
+  animation:smog-breathe 10s ease-in-out infinite alternate;
   mix-blend-mode:screen;
-  opacity:.9;
+}
+.bg-fx .city-far,
+.bg-fx .city-mid,
+.bg-fx .city-near{
+  left:0;right:0;bottom:0;top:auto;height:62%;
+  background-repeat:repeat-x;
+  background-position:center bottom;
+  transform-origin:50% 100%;
+}
+/* procedural building skylines via repeating gradients */
+.bg-fx .city-far{
+  height:48%;
+  opacity:.55;
+  background-image:
+    linear-gradient(var(--wall-far, #12081f) 0 100%),
+    repeating-linear-gradient(90deg,
+      transparent 0 18px,
+      color-mix(in srgb, var(--wall-b, #00f0ff) 18%, transparent) 18px 19px,
+      transparent 19px 46px,
+      color-mix(in srgb, var(--wall-a, #fe00fe) 14%, transparent) 46px 47px,
+      transparent 47px 80px
+    );
+  background-size:100% 100%, 160px 40%;
+  background-position:0 100%, 0 70%;
+  clip-path:polygon(
+    0% 100%,0% 62%,3% 62%,3% 48%,6% 48%,6% 58%,9% 58%,9% 40%,12% 40%,12% 55%,16% 55%,16% 35%,19% 35%,19% 50%,
+    23% 50%,23% 28%,27% 28%,27% 45%,31% 45%,31% 38%,35% 38%,35% 52%,40% 52%,40% 30%,44% 30%,44% 48%,
+    48% 48%,48% 22%,53% 22%,53% 44%,58% 44%,58% 36%,63% 36%,63% 50%,68% 50%,68% 26%,73% 26%,73% 46%,
+    78% 46%,78% 34%,83% 34%,83% 55%,88% 55%,88% 40%,93% 40%,93% 58%,100% 58%,100% 100%
+  );
+  filter:saturate(1.1);
+  transform:translate3d(calc(var(--tx) * .35), calc(var(--ty) * .12), 0) scale(1.05);
+  transition:transform .12s linear;
+}
+.bg-fx .city-mid{
+  height:54%;
+  opacity:.78;
+  background:
+    linear-gradient(180deg, transparent 0 8%, color-mix(in srgb, var(--wall-mid, #1a0a30) 92%, #000) 18% 100%);
+  clip-path:polygon(
+    0 100%,0 58%,2% 58%,2% 42%,5% 42%,5% 50%,8% 50%,8% 30%,11% 30%,11% 46%,15% 46%,15% 24%,18% 24%,18% 40%,
+    22% 40%,22% 18%,26% 18%,26% 38%,30% 38%,30% 28%,34% 28%,34% 48%,39% 48%,39% 20%,43% 20%,43% 36%,
+    48% 36%,48% 14%,52% 14%,52% 34%,57% 34%,57% 25%,62% 25%,62% 44%,67% 44%,67% 16%,72% 16%,72% 38%,
+    77% 38%,77% 22%,82% 22%,82% 46%,87% 46%,87% 32%,92% 32%,92% 50%,97% 50%,97% 40%,100% 40%,100% 100%
+  );
+  box-shadow:0 -20px 60px color-mix(in srgb, var(--wall-a, #fe00fe) 20%, transparent);
+  transform:translate3d(calc(var(--tx) * .55), calc(var(--ty) * .2), 0) scale(1.08);
+  transition:transform .1s linear;
+}
+.bg-fx .city-near{
+  height:40%;
+  opacity:.95;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--wall-near, #0a0414) 88%, #000), #02010a 80%);
+  clip-path:polygon(
+    0 100%,0 45%,4% 45%,4% 20%,9% 20%,9% 35%,14% 35%,14% 10%,20% 10%,20% 30%,26% 30%,26% 15%,32% 15%,32% 38%,
+    40% 38%,40% 8%,48% 8%,48% 28%,55% 28%,55% 12%,62% 12%,62% 34%,70% 34%,70% 5%,78% 5%,78% 26%,86% 26%,86% 14%,
+    93% 14%,93% 36%,100% 36%,100% 100%
+  );
+  filter:drop-shadow(0 0 18px color-mix(in srgb, var(--wall-b, #00f0ff) 30%, transparent));
+  transform:translate3d(calc(var(--tx) * .85), calc(var(--ty) * .32), 0) scale(1.12);
+  transition:transform .08s linear;
+}
+/* neon windows on mid/near cities */
+.bg-fx .windows{
+  left:0;right:0;bottom:0;height:55%;
+  background-image:
+    repeating-linear-gradient(90deg, transparent 0 10px, color-mix(in srgb, var(--wall-b, #00f0ff) 55%, transparent) 10px 11px, transparent 11px 22px),
+    repeating-linear-gradient(0deg, transparent 0 8px, color-mix(in srgb, var(--wall-a, #fe00fe) 40%, transparent) 8px 9px, transparent 9px 18px);
+  background-size:120px 55%, 90px 45%;
+  background-position:0 40%, 40px 50%;
+  opacity:.28;
+  mix-blend-mode:screen;
+  animation:windows-flicker 3.2s steps(3,end) infinite;
+  mask-image:linear-gradient(to top, rgba(0,0,0,.9) 20%, transparent 85%);
+  transform:translate3d(calc(var(--tx) * .6), calc(var(--ty) * .22), 0);
+  transition:transform .1s linear;
 }
 .bg-fx .rain{
+  inset:0;
   background-image:repeating-linear-gradient(
-    180deg,
-    transparent 0 14px,
-    color-mix(in srgb, var(--wall-b, #00f0ff) 22%, transparent) 14px 15px,
-    transparent 15px 28px
+    185deg,
+    transparent 0 16px,
+    color-mix(in srgb, var(--wall-b, #00f0ff) 28%, transparent) 16px 17px,
+    transparent 17px 34px
   );
-  background-size:3px 120px;
-  opacity:.18;
-  animation:rain-fall 1.1s linear infinite;
+  background-size:4px 140px;
+  opacity:.22;
+  animation:rain-fall .9s linear infinite;
   mix-blend-mode:screen;
-}
-.bg-fx .scan{
-  background:repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.1) 2px, rgba(0,0,0,.1) 4px);
-  opacity:.32;
-  animation:scan-flicker 5s steps(2, end) infinite;
+  transform:translate3d(calc(var(--tx) * -.2), 0, 0);
 }
 .bg-fx .beam{
-  background:linear-gradient(105deg, transparent 35%, color-mix(in srgb, var(--wall-a, #fe00fe) 16%, transparent) 48%, transparent 62%);
-  animation:beam-sweep 7s ease-in-out infinite;
+  inset:-10%;
+  background:linear-gradient(115deg, transparent 40%, color-mix(in srgb, var(--wall-a, #fe00fe) 18%, transparent) 49%, transparent 58%);
+  animation:beam-sweep 8s ease-in-out infinite;
   mix-blend-mode:color-dodge;
-  opacity:.65;
+  opacity:.55;
+}
+.bg-fx .scan{
+  inset:0;
+  background:repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.09) 2px, rgba(0,0,0,.09) 4px);
+  opacity:.3;
 }
 .bg-fx .vignette{
+  inset:0;
   background:
-    radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,.55) 100%),
-    linear-gradient(180deg, rgba(0,0,0,.25), transparent 30%, transparent 70%, rgba(0,0,0,.55));
+    radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,.62) 100%),
+    linear-gradient(180deg, rgba(0,0,0,.2), transparent 25%, transparent 60%, rgba(0,0,0,.7));
 }
-@keyframes wall-ken{from{transform:scale(1.05) translate3d(-1%,0,0)}to{transform:scale(1.14) translate3d(1.2%,-1%,0)}}
-@keyframes grid-scroll{from{background-position:0 0,0 0}to{background-position:0 72px,72px 0}}
-@keyframes orb-drift{
-  from{--orb1-x:18%;--orb1-y:22%;--orb2-x:80%;--orb2-y:68%;transform:translate3d(0,0,0) scale(1)}
-  to{--orb1-x:28%;--orb1-y:34%;--orb2-x:70%;--orb2-y:58%;transform:translate3d(1%,-2%,0) scale(1.08)}
+.bg-fx .mouse-glow{
+  width:42vmax;height:42vmax;left:0;top:0;
+  border-radius:50%;
+  background:radial-gradient(circle, color-mix(in srgb, var(--wall-a, #fe00fe) 26%, transparent), transparent 60%);
+  transform:translate3d(calc(var(--mx) * 100vw - 21vmax), calc(var(--my) * 100vh - 21vmax), 0);
+  transition:transform .08s linear;
+  mix-blend-mode:screen;
+  opacity:.75;
+  filter:blur(2px);
 }
-@keyframes rain-fall{from{background-position:0 0}to{background-position:0 120px}}
-@keyframes scan-flicker{0%,100%{opacity:.28}48%{opacity:.38}50%{opacity:.18}52%{opacity:.36}}
-@keyframes beam-sweep{0%{transform:translateX(-30%)}50%{transform:translateX(30%)}100%{transform:translateX(-30%)}}
-/* 4 distinct cyber walls */
-body.bg-mode-night{background-color:#030008 !important;background-image:none !important;}
-body.wall-night-0{
-  --wall-a:#fe00fe; --wall-b:#00f0ff; --wall-c:#fcee0a;
-  --wall-base:linear-gradient(165deg,#2b0052 0%,#6a00b8 28%,#1a0030 55%,#050010 100%);
-}
-body.wall-night-1{
-  --wall-a:#00f0ff; --wall-b:#39ff14; --wall-c:#00a2ff;
-  --wall-base:linear-gradient(200deg,#00141f 0%,#003d55 30%,#001018 62%,#02080c 100%);
-}
-body.wall-night-2{
-  --wall-a:#ff2a55; --wall-b:#fcee0a; --wall-c:#fe00fe;
-  --wall-base:linear-gradient(140deg,#2a0508 0%,#7a1028 32%,#2a0a18 60%,#080204 100%);
-}
-body.wall-night-3{
-  --wall-a:#8b5cf6; --wall-b:#22d3ee; --wall-c:#f0abfc;
-  --wall-base:linear-gradient(180deg,#0a0018 0%,#2a1060 35%,#100828 70%,#000 100%);
-}
-body.bg-mode-tmdb .bg-fx .grid,
+@keyframes stars-twinkle{from{opacity:.35}to{opacity:.7}}
+@keyframes smog-breathe{from{opacity:.7;filter:blur(8px)}to{opacity:1;filter:blur(14px)}}
+@keyframes windows-flicker{0%,100%{opacity:.22}33%{opacity:.34}66%{opacity:.18}}
+@keyframes rain-fall{from{background-position:0 0}to{background-position:0 140px}}
+@keyframes beam-sweep{0%{transform:translateX(-25%)}50%{transform:translateX(25%)}100%{transform:translateX(-25%)}}
+body.bg-mode-night{background-color:#02010a !important;background-image:none !important}
+/* 4 city palettes */
+body.wall-night-0{--wall-a:#fe00fe;--wall-b:#00f0ff;--wall-glow:#fe00fe;--wall-far:#140820;--wall-mid:#1c0a32;--wall-near:#0b0416}
+body.wall-night-1{--wall-a:#00f0ff;--wall-b:#39ff14;--wall-glow:#00d4ff;--wall-far:#04141a;--wall-mid:#062028;--wall-near:#020c10}
+body.wall-night-2{--wall-a:#ff2a55;--wall-b:#fcee0a;--wall-glow:#ff3b5c;--wall-far:#1a060c;--wall-mid:#2a0a14;--wall-near:#0e0308}
+body.wall-night-3{--wall-a:#a78bfa;--wall-b:#22d3ee;--wall-glow:#8b5cf6;--wall-far:#0c0820;--wall-mid:#140c30;--wall-near:#070414}
+body.bg-mode-tmdb .bg-fx .city-far,
+body.bg-mode-tmdb .bg-fx .city-mid,
+body.bg-mode-tmdb .bg-fx .city-near,
+body.bg-mode-tmdb .bg-fx .windows{opacity:.35}
 body.bg-mode-tmdb .bg-fx .rain,
 body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
-body.bg-mode-tmdb .bg-fx .orbs{opacity:.45}
-body.bg-mode-tmdb .bg-fx .base{animation-duration:40s}
 @media (prefers-reduced-motion: reduce){
-  .bg-fx .base,.bg-fx .grid,.bg-fx .orbs,.bg-fx .rain,.bg-fx .scan,.bg-fx .beam{animation:none !important}
+  .bg-fx .layer{animation:none !important;transition:none !important}
+  .bg-fx .mouse-glow{display:none}
 }
+
 
 @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important}}
 </style>
 </head><body>
-  <div class="bg-fx" aria-hidden="true"><div class="layer base"></div><div class="layer grid"></div><div class="layer orbs"></div><div class="layer rain"></div><div class="layer beam"></div><div class="layer scan"></div><div class="layer vignette"></div></div>
+  <div class="bg-fx" id="bg_fx" aria-hidden="true"><div class="layer sky"></div><div class="layer stars"></div><div class="layer smog"></div><div class="layer city-far"></div><div class="layer city-mid"></div><div class="layer windows"></div><div class="layer city-near"></div><div class="layer rain"></div><div class="layer beam"></div><div class="layer mouse-glow"></div><div class="layer scan"></div><div class="layer vignette"></div></div>
   <div class="scanlines" aria-hidden="true"></div>
   <div class="cp-line top"></div><div class="cp-line bottom"></div>
   <div class="cp-line left"></div><div class="cp-line right"></div>
@@ -315,10 +410,10 @@ body.bg-mode-tmdb .bg-fx .base{animation-duration:40s}
   <script>
     const DEFAULT_BG = '/t/p/original/1RgPyOhN4DRs225BGTlHJqCudII.jpg';
     const NIGHT_WALLS = [
-      { id: 'neon-alley', label: '粉紫霓虹' },
-      { id: 'cyan-district', label: '青绿矩阵' },
-      { id: 'amber-core', label: '赤焰街区' },
-      { id: 'void-spire', label: '虚空塔楼' }
+      { id: 'neon-alley', label: '霓虹都会' },
+      { id: 'cyan-district', label: '青雨城邦' },
+      { id: 'amber-core', label: '赤色特区' },
+      { id: 'void-spire', label: '虚空天际' }
     ];
     const BG_MODE_KEY = 'tmdb_bg_mode';
     const NIGHT_WALL_KEY = 'tmdb_night_wall';
@@ -740,6 +835,55 @@ body.bg-mode-tmdb .bg-fx .base{animation-duration:40s}
       }
     }).mount('#app');
     } // end Vue available
+  
+    // Mouse-interactive cyber city parallax (wallpaper-app style)
+    (function setupWallParallax() {
+      const root = () => document.getElementById('bg_fx');
+      let raf = 0;
+      let targetX = 0.5, targetY = 0.45, curX = 0.5, curY = 0.45;
+      function paint() {
+        raf = 0;
+        const el = root();
+        if (!el) return;
+        curX += (targetX - curX) * 0.08;
+        curY += (targetY - curY) * 0.08;
+        const dx = (curX - 0.5) * 2;
+        const dy = (curY - 0.5) * 2;
+        el.style.setProperty('--mx', curX.toFixed(4));
+        el.style.setProperty('--my', curY.toFixed(4));
+        el.style.setProperty('--tx', (dx * 28).toFixed(2) + 'px');
+        el.style.setProperty('--ty', (dy * 18).toFixed(2) + 'px');
+        if (Math.abs(targetX - curX) > 0.001 || Math.abs(targetY - curY) > 0.001) {
+          raf = requestAnimationFrame(paint);
+        }
+      }
+      function onMove(e) {
+        const w = window.innerWidth || 1;
+        const h = window.innerHeight || 1;
+        targetX = Math.min(1, Math.max(0, e.clientX / w));
+        targetY = Math.min(1, Math.max(0, e.clientY / h));
+        if (!raf) raf = requestAnimationFrame(paint);
+      }
+      function onLeave() {
+        targetX = 0.5; targetY = 0.45;
+        if (!raf) raf = requestAnimationFrame(paint);
+      }
+      window.addEventListener('pointermove', onMove, { passive: true });
+      window.addEventListener('pointerleave', onLeave, { passive: true });
+      // gentle idle drift when no mouse
+      let idle = 0;
+      setInterval(function () {
+        if (document.hidden) return;
+        idle += 0.02;
+        // only drift if mouse nearly centered recently
+        if (Math.abs(targetX - 0.5) < 0.02 && Math.abs(targetY - 0.45) < 0.02) {
+          targetX = 0.5 + Math.sin(idle) * 0.03;
+          targetY = 0.45 + Math.cos(idle * 0.8) * 0.02;
+          if (!raf) raf = requestAnimationFrame(paint);
+        }
+      }, 80);
+    })();
+
   </script>
 </body>
 </html>
