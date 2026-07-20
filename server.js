@@ -866,6 +866,34 @@ function setDiskCacheBytesSnapshot(bytes) {
   diskCacheBytesSnapshotAt = Date.now();
 }
 
+function getDiskCacheBytesSnapshot() {
+  return diskCacheBytesSnapshot;
+}
+
+// 磁盘写入成功后增量维护占用；若尚无基线快照则跳过，等待扫描建立基线。
+// replacedBytes：同路径覆盖写入时旧文件大小，避免重复累计。
+function noteDiskCacheWrite(addedBytes, replacedBytes = 0) {
+  const added = Number(addedBytes) || 0;
+  const replaced = Number(replacedBytes) || 0;
+  if (!diskCacheBytesSnapshotAt || added <= 0 && replaced <= 0) return;
+  setDiskCacheBytesSnapshot(diskCacheBytesSnapshot - replaced + added);
+}
+
+// 日志时间兼容 epoch ms 数字 / 数字字符串 / ISO 字符串
+function toTimestamp(value) {
+  if (value == null || value === '') return 0;
+  if (typeof value === 'number') {
+    return Number.isFinite(value) && value > 0 ? value : 0;
+  }
+  const asNumber = Number(value);
+  if (Number.isFinite(asNumber) && asNumber > 0 && String(value).trim() !== '') {
+    // 纯数字字符串（含前端回传的 Date.now()）
+    if (/^\s*\d+(\.\d+)?\s*$/.test(String(value))) return asNumber;
+  }
+  const parsed = Date.parse(String(value));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function cleanupCacheIfNeeded() {
   if (diskCacheCleanupRunning) return;
   diskCacheCleanupRunning = true;
@@ -1102,9 +1130,16 @@ async function handleImage(req, res, pathname) {
       const cacheFile = getCacheFilePath(pathname);
       const tmpFile = `${cacheFile}.${process.pid}.${(diskWriteCounter = (diskWriteCounter + 1) >>> 0)}.${crypto.randomBytes(6).toString('hex')}.tmp`;
       ensureDir(path.dirname(cacheFile))
-        .then(() => fs.promises.writeFile(tmpFile, upstream.buffer))
-        .then(() => fs.promises.rename(tmpFile, cacheFile))
-        .then(cleanupCacheIfNeeded)
+        .then(async () => {
+          let replacedBytes = 0;
+          try {
+            replacedBytes = (await fs.promises.stat(cacheFile)).size;
+          } catch {}
+          await fs.promises.writeFile(tmpFile, upstream.buffer);
+          await fs.promises.rename(tmpFile, cacheFile);
+          noteDiskCacheWrite(upstream.buffer.length, replacedBytes);
+          cleanupCacheIfNeeded();
+        })
         .catch(() => { fs.promises.unlink(tmpFile).catch(() => {}); });
     }
   } catch (err) {
@@ -1277,12 +1312,9 @@ async function handleAdminLogs(req, res, query) {
   let rows = REQUEST_LOGS;
   const sinceRaw = query.since || query.after || '';
   if (sinceRaw) {
-    const sinceTs = Date.parse(String(sinceRaw)) || Number(sinceRaw) || 0;
+    const sinceTs = toTimestamp(sinceRaw);
     if (sinceTs > 0) {
-      rows = REQUEST_LOGS.filter((entry) => {
-        const t = Date.parse(entry && entry.time) || 0;
-        return t > sinceTs;
-      });
+      rows = REQUEST_LOGS.filter((entry) => toTimestamp(entry && entry.time) > sinceTs);
     }
   }
   sendAdminJSONCompressed(req, res, 200, rows.slice(-limit));
@@ -1631,6 +1663,10 @@ module.exports = {
     cacheSet,
     collectFiles,
     getDiskCacheBytes,
+    getDiskCacheBytesSnapshot,
+    setDiskCacheBytesSnapshot,
+    noteDiskCacheWrite,
+    toTimestamp,
     shouldRecordRequest,
     isLocalOrPrivateIP,
     hasForwardedClientIP,

@@ -328,6 +328,82 @@ assert.strictEqual(_internals.enforceResponseLimit(4, 4, 'api'), true);
     assert.strictEqual(goodAuth.status, 200);
     assert.ok(!goodAuth.headers['access-control-allow-origin']);
     process.env.TRUST_PROXY = 'false';
+
+    // --- log since filter: numeric epoch ms must work (entry.time is Date.now()) ---
+    assert.strictEqual(_internals.toTimestamp(1700000000123), 1700000000123);
+    assert.strictEqual(_internals.toTimestamp('1700000000123'), 1700000000123);
+    assert.ok(_internals.toTimestamp('2024-01-01T00:00:00.000Z') > 0);
+    assert.strictEqual(_internals.toTimestamp(''), 0);
+    assert.strictEqual(_internals.toTimestamp(null), 0);
+
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    _internals.recordUpstreamRequest({
+      kind: 'api', method: 'GET', url: 'https://api.tmdb.org/3/movie/old',
+      status: 200, durationMs: 1, bytes: 1
+    });
+    await sleep(5);
+    _internals.recordUpstreamRequest({
+      kind: 'image', method: 'GET', url: 'https://image.tmdb.org/t/p/w500/mid.jpg',
+      status: 200, durationMs: 2, bytes: 2
+    });
+    await sleep(5);
+    _internals.recordUpstreamRequest({
+      kind: 'api', method: 'GET', url: 'https://api.tmdb.org/3/movie/new',
+      status: 200, durationMs: 3, bytes: 3
+    });
+
+    const allLogsResp = await requestAdmin(port, 'GET', '/admin/logs?limit=50', {
+      'X-Admin-Key': 'admin-secret'
+    });
+    assert.strictEqual(allLogsResp.status, 200);
+    const allLogs = JSON.parse(allLogsResp.body);
+    assert.ok(allLogs.length >= 3);
+    const mid = allLogs.find(entry => entry.path && entry.path.includes('/t/p/w500/mid.jpg'));
+    const last = allLogs.find(entry => entry.path && entry.path.includes('/3/movie/new'));
+    assert.ok(mid, 'mid log row present');
+    assert.ok(last, 'new log row present');
+    assert.ok(typeof mid.time === 'number');
+    assert.ok(typeof last.time === 'number');
+    assert.ok(last.time > mid.time, 'timestamps must be strictly increasing for since filter test');
+
+    const sinceResp = await requestAdmin(
+      port,
+      'GET',
+      `/admin/logs?limit=50&since=${encodeURIComponent(String(mid.time))}`,
+      { 'X-Admin-Key': 'admin-secret' }
+    );
+    assert.strictEqual(sinceResp.status, 200);
+    const sinceLogs = JSON.parse(sinceResp.body);
+    assert.ok(sinceLogs.length >= 1);
+    assert.ok(sinceLogs.every(entry => entry.time > mid.time));
+    assert.ok(sinceLogs.some(entry => entry.path && entry.path.includes('/3/movie/new')));
+    assert.ok(!sinceLogs.some(entry => entry.path && entry.path.includes('/t/p/w500/mid.jpg')));
+
+    // ISO since also accepted
+    const isoSince = new Date(mid.time).toISOString();
+    const isoResp = await requestAdmin(
+      port,
+      'GET',
+      `/admin/logs?limit=50&since=${encodeURIComponent(isoSince)}`,
+      { 'X-Admin-Key': 'admin-secret' }
+    );
+    assert.strictEqual(isoResp.status, 200);
+    const isoLogs = JSON.parse(isoResp.body);
+    assert.ok(isoLogs.every(entry => entry.time > mid.time));
+    assert.ok(isoLogs.some(entry => entry.path && entry.path.includes('/3/movie/new')));
+
+    // --- disk cache snapshot incremental update ---
+    // getDiskCacheBytes() short-circuits to 0 when IMAGE_DISK_CACHE_ENABLED=false (test env),
+    // so assert against the snapshot helpers directly.
+    _internals.setDiskCacheBytesSnapshot(1000);
+    assert.strictEqual(_internals.getDiskCacheBytesSnapshot(), 1000);
+    _internals.noteDiskCacheWrite(250);
+    assert.strictEqual(_internals.getDiskCacheBytesSnapshot(), 1250);
+    // overwrite path: replace 250-byte file with 400-byte content → net +150
+    _internals.noteDiskCacheWrite(400, 250);
+    assert.strictEqual(_internals.getDiskCacheBytesSnapshot(), 1400);
+    _internals.setDiskCacheBytesSnapshot(0);
+    assert.strictEqual(_internals.getDiskCacheBytesSnapshot(), 0);
   } finally {
     await new Promise(resolve => server.close(resolve));
     shutdown();

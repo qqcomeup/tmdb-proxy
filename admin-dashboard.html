@@ -1039,7 +1039,11 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
               const map = new Map();
               for (const row of latestLogRows.value) map.set(String(row.time||'') + '|' + String(row.path||'') + '|' + String(row.status||''), row);
               for (const row of incoming) map.set(String(row.time||'') + '|' + String(row.path||'') + '|' + String(row.status||''), row);
-              nextLogs = Array.from(map.values()).sort((a,b) => (Date.parse(a.time)||0) - (Date.parse(b.time)||0)).slice(-30);
+              nextLogs = Array.from(map.values()).sort((a,b) => {
+                const ta = typeof a.time === 'number' ? a.time : (Number(a.time) || Date.parse(a.time) || 0);
+                const tb = typeof b.time === 'number' ? b.time : (Number(b.time) || Date.parse(b.time) || 0);
+                return ta - tb;
+              }).slice(-30);
             } else {
               nextLogs = incoming;
             }
