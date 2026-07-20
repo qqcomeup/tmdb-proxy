@@ -1347,6 +1347,29 @@ async function handleAdminStatus(req, res, query) {
   });
 }
 
+
+async function handleAdminVendor(req, res, pathname) {
+  try {
+    const name = path.basename(pathname);
+    if (!/^[A-Za-z0-9._-]+$/.test(name)) return send404(res);
+    const filePath = path.join(__dirname, 'vendor', name);
+    const data = await fs.promises.readFile(filePath);
+    const lower = name.toLowerCase();
+    let type = 'application/octet-stream';
+    if (lower.endsWith('.js')) type = 'application/javascript; charset=utf-8';
+    else if (lower.endsWith('.css')) type = 'text/css; charset=utf-8';
+    else if (lower.endsWith('.map')) type = 'application/json; charset=utf-8';
+    res.writeHead(200, {
+      'Content-Type': type,
+      'Cache-Control': 'public, max-age=604800, immutable',
+      'Content-Length': data.length
+    });
+    res.end(data);
+  } catch {
+    send404(res);
+  }
+}
+
 async function handleAdminDashboard(res) {
   try {
     const html = await fs.promises.readFile(path.join(__dirname, 'admin-dashboard.html'));
@@ -1487,6 +1510,7 @@ const server = http.createServer(async (req, res) => {
       if (pathname === '/admin/auth' && req.method === 'POST') return handleAdminAuth(req, res);
       if (pathname === '/admin/logout' && req.method === 'POST') return handleAdminLogout(req, res);
       if (pathname === '/admin/status') return handleAdminStatus(req, res, query);
+      if (pathname.startsWith('/admin/vendor/')) return handleAdminVendor(req, res, pathname);
       if (pathname === '/admin/dashboard') return handleAdminDashboard(res);
       if (pathname === '/admin/random-bg') return handleAdminRandomBg(req, res, query);
       if (pathname === '/admin/clear-cache') return handleAdminClearCache(req, res, query);

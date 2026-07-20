@@ -230,7 +230,26 @@ body.bg-mode-tmdb .bg-fx .haze{opacity:.75}
       </section>
     </main>
   </div>
-  <script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"></script>
+  <script src="/admin/vendor/vue.global.prod.js"></script>
+  <script>
+    // CDN fallback if local vendor missing
+    if (typeof Vue === 'undefined') {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"><\/script>');
+    }
+  </script>
+  <script>
+    window.addEventListener('DOMContentLoaded', function () {
+      setTimeout(function () {
+        if (typeof Vue === 'undefined') {
+          var box = document.getElementById('boot') || document.body;
+          var tip = document.createElement('div');
+          tip.style.cssText = 'position:fixed;inset:auto 16px 16px 16px;z-index:9999;padding:14px 16px;background:rgba(20,0,30,.92);border:1px solid #fe00fe;color:#f6ecf6;font:13px/1.5 JetBrains Mono,monospace';
+          tip.innerHTML = 'Vue 未加载：请通过 <b>http://127.0.0.1:8088/admin/dashboard</b> 访问，不要直接双击本地 html 文件。';
+          document.body.appendChild(tip);
+        }
+      }, 800);
+    });
+  </script>
   <script>    const DEFAULT_BG = '/t/p/original/1RgPyOhN4DRs225BGTlHJqCudII.jpg';
     const NIGHT_WALLS = [
       { id: 'neon-alley', label: '霓虹巷' },
