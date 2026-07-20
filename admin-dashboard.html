@@ -54,7 +54,7 @@
 .hud-brand{display:flex;gap:12px;align-items:center;min-width:0}.hud-brand h1{margin:0;font-size:clamp(16px,2.2vw,22px)}.hud-brand p{margin:5px 0 0;font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase}
 .hud-meta{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
 .zone{margin-bottom:18px}.zone-head{display:flex;justify-content:space-between;gap:10px;margin-bottom:10px;padding:0 2px}.zone-head h2{margin:0;font-family:var(--mono);font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--yellow)}.zone-head span{font-family:var(--mono);font-size:11px;color:var(--muted)}
-.zone-grid{display:grid;gap:12px}.zone-grid.traffic{grid-template-columns:1.3fr 1fr 1fr 1fr}.zone-grid.cache{grid-template-columns:1.2fr 1fr 1fr}.zone-grid.system{grid-template-columns:1fr 1fr 1.2fr}
+.zone-grid{display:grid;gap:12px}.zone-grid.traffic{grid-template-columns:1.3fr 1fr 1fr 1fr}.zone-grid.cache{grid-template-columns:1fr 1fr}.zone-grid.system{grid-template-columns:1fr 1fr 1.2fr}
 .panel{position:relative;min-height:140px;padding:16px;background:var(--panel-2);border:1px solid color-mix(in srgb,var(--pink) 28%,transparent);backdrop-filter:blur(12px);overflow:hidden;transition:border-color .2s,transform .2s,box-shadow .2s}
 .panel:hover{border-color:color-mix(in srgb,var(--pink) 65%,transparent);transform:translateY(-2px);box-shadow:0 0 24px color-mix(in srgb,var(--pink) 14%,transparent)}
 .panel.hero{min-height:168px;background:linear-gradient(145deg,color-mix(in srgb,var(--pink) 16%,var(--panel-2)),var(--panel))}
@@ -63,7 +63,7 @@
 .value,value{display:block;font-family:var(--mono);font-weight:800;font-size:clamp(24px,3.4vw,38px);line-height:1.05;color:#fff;text-shadow:0 0 18px color-mix(in srgb,var(--pink) 30%,transparent)}
 .panel.hero .value{color:var(--yellow);font-size:clamp(30px,4vw,48px)}
 .sub,.stat-sub{margin-top:8px;color:var(--muted);font-size:12px;line-height:1.45}
-.split-value{display:flex;flex-wrap:wrap;gap:10px 14px}.bit{font-family:var(--mono);font-size:clamp(16px,2vw,22px);font-weight:700}.bit small{display:block;margin-top:3px;font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;font-weight:500}
+.split-value{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 12px;align-items:end}.split-value.cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}.split-value.cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}.split-value .bit{min-width:0}.split-value .bit small{display:block;margin-top:2px;opacity:.85}.bit{font-family:var(--mono);font-size:clamp(16px,2vw,22px);font-weight:700}.bit small{display:block;margin-top:3px;font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;font-weight:500}
 .bit.mem{color:var(--cyan)}.bit.disk{color:var(--yellow)}.bit.miss{color:var(--bad)}.bit.hit{color:var(--ok)}
 .meter{margin-top:12px;height:8px;background:rgba(255,255,255,.08);border:1px solid color-mix(in srgb,var(--pink) 22%,transparent);overflow:hidden}
 .meter-fill{height:100%;width:0;background:linear-gradient(90deg,var(--pink),var(--yellow));transition:width .4s ease;box-shadow:0 0 10px color-mix(in srgb,var(--pink) 50%,transparent)}.meter-fill.cyan{background:linear-gradient(90deg,var(--cyan),var(--pink))}
@@ -315,6 +315,17 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
 .log-entry.active{background:color-mix(in srgb,var(--pink) 14%,transparent);outline:1px solid color-mix(in srgb,var(--pink) 45%,transparent)}
 .log-entry:hover{background:rgba(255,255,255,.03)}
 .value.tick{transition:color .2s}
+.cache-card{display:flex;flex-direction:column;min-height:248px}
+.cache-card .split-value{margin-top:4px}
+.cache-card .ring-wrap{margin-top:auto;padding-top:10px}
+.cache-card .ratio-bar{margin-top:10px}
+.cache-card .chip-row{margin-top:10px}
+.cache-card .stat-icon{margin-bottom:2px}
+.cache-card label{margin-bottom:10px}
+.cache-card .sub.rate-line{margin-top:8px;display:flex;justify-content:space-between;gap:8px}
+.cache-card .sub.rate-line strong{color:var(--ink);font-family:var(--mono)}
+
+
 @media (max-width:900px){.log-layout{grid-template-columns:1fr}}
 
 </style>
@@ -366,36 +377,54 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
         <section class="zone">
           <div class="zone-head"><h2>// 02 缓存矩阵</h2><span>IMG {{ imgHitRate }} · API {{ apiHitRate }}</span></div>
           <div class="zone-grid cache">
-            <article class="panel hero">
-              <div class="stat-icon">IMG</div><label>图片缓存 · 内存 / 磁盘 / 未命中</label>
-              <div class="split-value"><div class="bit mem">{{ fmt(metrics.image.mem_hit) }}<small>MEM</small></div><div class="bit disk">{{ fmt(metrics.image.disk_hit) }}<small>DISK</small></div><div class="bit miss">{{ fmt(metrics.image.miss) }}<small>MISS</small></div></div>
+            <article class="panel cache-card">
+              <div class="stat-icon">IMG</div>
+              <label>图片缓存 · 内存 / 磁盘 / 未命中</label>
+              <div class="split-value cols-3">
+                <div class="bit mem">{{ fmt(metrics.image.mem_hit) }}<small>MEM</small></div>
+                <div class="bit disk">{{ fmt(metrics.image.disk_hit) }}<small>DISK</small></div>
+                <div class="bit miss">{{ fmt(metrics.image.miss) }}<small>MISS</small></div>
+              </div>
               <div class="ring-wrap">
                 <div class="ring" :style="{'--p': imgHitPct, '--c': 'var(--cyan)'}"></div>
-                <div class="ring-meta"><div class="pct">{{ imgHitRate }}</div><div class="hint">图片命中率</div></div>
+                <div class="ring-meta">
+                  <div class="pct">{{ imgHitRate }}</div>
+                  <div class="hint">图片命中率</div>
+                </div>
               </div>
               <div class="ratio-bar" :title="'HIT ' + imgHitPct + '% / MISS ' + (100-imgHitPct) + '%'">
                 <i class="hit" :style="{width: imgHitPct + '%'}"></i>
                 <i class="miss" :style="{width: (100-imgHitPct) + '%'}"></i>
               </div>
-              <div id="v_img_cache" class="chip-row"><span class="mini-chip" v-for="c in imgCacheChips" :key="c">{{ c }}</span></div>
-              <div class="sub">命中率 <span id="v_img_rate">{{ imgHitRate }}</span></div>
+              <div id="v_img_cache" class="chip-row">
+                <span class="mini-chip" v-for="c in imgCacheChips" :key="c">{{ c }}</span>
+              </div>
+              <div class="sub rate-line">命中率 <strong id="v_img_rate">{{ imgHitRate }}</strong></div>
             </article>
-            <article class="panel">
-              <div class="stat-icon y">API</div><label>API 请求 / 缓存</label>
-              <div id="v_api" class="value" style="font-size:clamp(22px,3vw,32px)">{{ fmt(metrics.api.total) }}</div>
-              <div class="split-value" style="margin-top:8px"><div class="bit hit">{{ fmt(metrics.api.hit) }}<small>HIT</small></div><div class="bit miss">{{ fmt(metrics.api.miss) }}<small>MISS</small></div></div>
+            <article class="panel cache-card">
+              <div class="stat-icon y">API</div>
+              <label>API 缓存 · 命中 / 未命中</label>
+              <div class="split-value cols-3">
+                <div class="bit hit">{{ fmt(metrics.api.hit) }}<small>HIT</small></div>
+                <div class="bit miss">{{ fmt(metrics.api.miss) }}<small>MISS</small></div>
+                <div class="bit mem" id="v_api">{{ fmt(metrics.api.total) }}<small>TOTAL</small></div>
+              </div>
               <div class="ring-wrap">
                 <div class="ring" :style="{'--p': apiHitPct, '--c': 'var(--yellow)'}"></div>
-                <div class="ring-meta"><div class="pct">{{ apiHitRate }}</div><div class="hint">API 命中率</div></div>
+                <div class="ring-meta">
+                  <div class="pct">{{ apiHitRate }}</div>
+                  <div class="hint">API 命中率</div>
+                </div>
               </div>
-              <div class="ratio-bar">
+              <div class="ratio-bar" :title="'HIT ' + apiHitPct + '% / MISS ' + (100-apiHitPct) + '%'">
                 <i class="hit" :style="{width: apiHitPct + '%'}"></i>
                 <i class="miss" :style="{width: (100-apiHitPct) + '%'}"></i>
               </div>
-              <div id="v_api_cache" class="chip-row"><span class="mini-chip" v-for="c in apiCacheChips" :key="'a'+c">{{ c }}</span></div>
-              <div class="sub">命中率 <span id="v_api_rate">{{ apiHitRate }}</span></div>
+              <div id="v_api_cache" class="chip-row">
+                <span class="mini-chip" v-for="c in apiCacheChips" :key="'a'+c">{{ c }}</span>
+              </div>
+              <div class="sub rate-line">命中率 <strong id="v_api_rate">{{ apiHitRate }}</strong></div>
             </article>
-            <article class="panel"><div class="stat-icon c">%</div><label>综合命中观感</label><div class="value" style="font-size:clamp(22px,3vw,30px)">{{ hitRateText }}</div><div class="sub">越高越省上游流量 · UPSTREAM 穿透更少</div></article>
           </div>
         </section>
         <section class="zone">
