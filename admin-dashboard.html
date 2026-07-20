@@ -318,7 +318,8 @@ body.bg-mode-tmdb .bg-fx .haze{opacity:.75}
         document.body.appendChild(tip);
       });
     } else {
-    const { createApp, ref, computed, reactive, onMounted, onUnmounted, nextTick, watch } = Vue;    createApp({
+    const { createApp, ref, computed, reactive, onMounted, onUnmounted, nextTick, watch } = Vue;
+    createApp({
       setup() {
         const phase = ref('boot');
         const adminKey = ref('');
