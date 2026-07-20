@@ -4,9 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>TMDB 代理 // 2077</title>
+  <!-- fonts optional: system stack first for offline/intranet -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700;800&family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Noto+Sans+SC:wght@400;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
   <script>
     (function () {
       try {
@@ -18,7 +19,7 @@
           if (stored) {
             const parsed = JSON.parse(stored);
             if (parsed && parsed.path) {
-              document.documentElement.style.setProperty('--bg-image', 'url("/t/p/original' + parsed.path + '")');
+              document.documentElement.style.setProperty('--bg-image', 'url("/t/p/w1280' + parsed.path + '")');
             }
           }
         }
@@ -275,6 +276,47 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
 
 
 @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important}}
+
+/* UX polish: skeleton, rings, detail pane, HUD alert */
+.skel{position:relative;overflow:hidden;color:transparent!important;background:linear-gradient(90deg,rgba(255,255,255,.04),rgba(255,255,255,.12),rgba(255,255,255,.04));background-size:200% 100%;animation:skel-shine 1.2s linear infinite;border-radius:4px;min-height:1.1em}
+.skel *{visibility:hidden}
+@keyframes skel-shine{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.hud-alert{
+  display:none;width:100%;margin:0 0 12px;padding:10px 12px;
+  border:1px solid color-mix(in srgb,var(--warn) 50%,transparent);
+  background:color-mix(in srgb,var(--warn) 14%,rgba(0,0,0,.55));
+  color:var(--warn);font-family:var(--mono);font-size:12px;letter-spacing:.04em;
+}
+.hud-alert.show{display:block}
+.ring-wrap{display:flex;align-items:center;gap:12px;margin-top:10px}
+.ring{--p:0;--c:var(--cyan);width:54px;height:54px;border-radius:50%;
+  background:conic-gradient(var(--c) calc(var(--p)*1%), rgba(255,255,255,.08) 0);
+  display:grid;place-items:center;flex:0 0 auto;
+  box-shadow:0 0 16px color-mix(in srgb,var(--c) 30%,transparent)}
+.ring::after{content:"";width:38px;height:38px;border-radius:50%;background:var(--panel-2)}
+.ring-meta{min-width:0;flex:1}
+.ring-meta .pct{font-family:var(--mono);font-size:18px;font-weight:800;color:#fff}
+.ring-meta .hint{font-size:11px;color:var(--muted);margin-top:2px}
+.ratio-bar{display:flex;height:8px;margin-top:10px;background:rgba(255,255,255,.06);overflow:hidden;border:1px solid color-mix(in srgb,var(--pink) 20%,transparent)}
+.ratio-bar i{display:block;height:100%}
+.ratio-bar .hit{background:linear-gradient(90deg,var(--ok),var(--cyan))}
+.ratio-bar .miss{background:linear-gradient(90deg,var(--bad),#ff6b8a)}
+.log-layout{display:grid;grid-template-columns:1.4fr .9fr;gap:10px;min-height:min(70vh,720px)}
+.log-list{min-height:0;overflow:auto;border:1px solid color-mix(in srgb,var(--cyan) 20%,transparent);background:rgba(0,8,6,.45)}
+.log-detail{
+  min-height:0;overflow:auto;border:1px solid color-mix(in srgb,var(--pink) 25%,transparent);
+  background:rgba(10,0,16,.55);padding:12px;font-family:var(--mono);font-size:12px
+}
+.log-detail h3{margin:0 0 10px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--cyan)}
+.log-detail .kv{display:grid;grid-template-columns:88px 1fr;gap:6px 8px;margin:0}
+.log-detail .kv dt{color:var(--muted)}
+.log-detail .kv dd{margin:0;color:#e8fff4;word-break:break-all}
+.log-entry{cursor:pointer}
+.log-entry.active{background:color-mix(in srgb,var(--pink) 14%,transparent);outline:1px solid color-mix(in srgb,var(--pink) 45%,transparent)}
+.log-entry:hover{background:rgba(255,255,255,.03)}
+.value.tick{transition:color .2s}
+@media (max-width:900px){.log-layout{grid-template-columns:1fr}}
+
 </style>
 </head><body>
   <div class="bg-fx" id="bg_fx" aria-hidden="true"><div class="layer sky"></div><div class="layer stars"></div><div class="layer smog"></div><div class="layer city-far"></div><div class="layer city-mid"></div><div class="layer windows"></div><div class="layer city-near"></div><div class="layer rain"></div><div class="layer beam"></div><div class="layer mouse-glow"></div><div class="layer scan"></div><div class="layer vignette"></div></div>
@@ -311,13 +353,14 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
             <div class="pill">同步 <span id="v_refreshed">{{ refreshedAt }}</span></div>
           </div>
         </header>
+        <div id="hud_alert" class="hud-alert" :class="{show:!!alertText}" role="status" aria-live="polite">{{ alertText }}</div>
         <section class="zone">
           <div class="zone-head"><h2>// 01 流量节点</h2><span>REQUEST STREAM</span></div>
           <div class="zone-grid traffic">
-            <article class="panel hero"><div class="stat-icon">Σ</div><label>总请求数</label><div id="v_total" class="value">{{ fmt(metrics.total) }}</div><div class="sub">累计通过代理的全部请求</div></article>
-            <article class="panel"><div class="stat-icon y">HIT</div><label>缓存命中率</label><div id="v_hit_rate" class="value" style="font-size:clamp(22px,3vw,32px)">{{ hitRateText }}</div><div class="sub">API + 图片缓存</div></article>
-            <article class="panel"><div class="stat-icon c">RPS</div><label>实时速率</label><div id="v_rps" class="value" style="font-size:clamp(22px,3vw,32px)">{{ rpsText }}</div><div class="sub">最近窗口估算</div></article>
-            <article class="panel"><div class="stat-icon">ERR</div><label>错误率</label><div id="v_error_rate" class="value" style="font-size:clamp(22px,3vw,32px)">{{ errorRateText }}</div><div id="v_err_rate" class="sub">{{ errRateNote }}</div></article>
+            <article class="panel hero"><div class="stat-icon">Σ</div><label>总请求数</label><div id="v_total" class="value tick" :class="{skel: bootingMetrics}">{{ fmt(display.total) }}</div><div class="sub">累计通过代理的全部请求</div></article>
+            <article class="panel"><div class="stat-icon y">HIT</div><label>缓存命中率</label><div id="v_hit_rate" class="value tick" style="font-size:clamp(22px,3vw,32px)" :class="{skel: bootingMetrics}">{{ display.hitRate }}</div><div class="sub">API + 图片缓存</div></article>
+            <article class="panel"><div class="stat-icon c">RPS</div><label>实时速率</label><div id="v_rps" class="value tick" style="font-size:clamp(22px,3vw,32px)" :class="{skel: bootingMetrics}">{{ display.rps }}</div><div class="sub">最近窗口估算</div></article>
+            <article class="panel"><div class="stat-icon">ERR</div><label>错误率</label><div id="v_error_rate" class="value tick" style="font-size:clamp(22px,3vw,32px)" :class="{skel: bootingMetrics}">{{ display.errorRate }}</div><div id="v_err_rate" class="sub">{{ errRateNote }}</div></article>
           </div>
         </section>
         <section class="zone">
@@ -326,6 +369,14 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
             <article class="panel hero">
               <div class="stat-icon">IMG</div><label>图片缓存 · 内存 / 磁盘 / 未命中</label>
               <div class="split-value"><div class="bit mem">{{ fmt(metrics.image.mem_hit) }}<small>MEM</small></div><div class="bit disk">{{ fmt(metrics.image.disk_hit) }}<small>DISK</small></div><div class="bit miss">{{ fmt(metrics.image.miss) }}<small>MISS</small></div></div>
+              <div class="ring-wrap">
+                <div class="ring" :style="{'--p': imgHitPct, '--c': 'var(--cyan)'}"></div>
+                <div class="ring-meta"><div class="pct">{{ imgHitRate }}</div><div class="hint">图片命中率</div></div>
+              </div>
+              <div class="ratio-bar" :title="'HIT ' + imgHitPct + '% / MISS ' + (100-imgHitPct) + '%'">
+                <i class="hit" :style="{width: imgHitPct + '%'}"></i>
+                <i class="miss" :style="{width: (100-imgHitPct) + '%'}"></i>
+              </div>
               <div id="v_img_cache" class="chip-row"><span class="mini-chip" v-for="c in imgCacheChips" :key="c">{{ c }}</span></div>
               <div class="sub">命中率 <span id="v_img_rate">{{ imgHitRate }}</span></div>
             </article>
@@ -333,6 +384,14 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
               <div class="stat-icon y">API</div><label>API 请求 / 缓存</label>
               <div id="v_api" class="value" style="font-size:clamp(22px,3vw,32px)">{{ fmt(metrics.api.total) }}</div>
               <div class="split-value" style="margin-top:8px"><div class="bit hit">{{ fmt(metrics.api.hit) }}<small>HIT</small></div><div class="bit miss">{{ fmt(metrics.api.miss) }}<small>MISS</small></div></div>
+              <div class="ring-wrap">
+                <div class="ring" :style="{'--p': apiHitPct, '--c': 'var(--yellow)'}"></div>
+                <div class="ring-meta"><div class="pct">{{ apiHitRate }}</div><div class="hint">API 命中率</div></div>
+              </div>
+              <div class="ratio-bar">
+                <i class="hit" :style="{width: apiHitPct + '%'}"></i>
+                <i class="miss" :style="{width: (100-apiHitPct) + '%'}"></i>
+              </div>
               <div id="v_api_cache" class="chip-row"><span class="mini-chip" v-for="c in apiCacheChips" :key="'a'+c">{{ c }}</span></div>
               <div class="sub">命中率 <span id="v_api_rate">{{ apiHitRate }}</span></div>
             </article>
@@ -391,15 +450,35 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
               <button class="chip-btn log-filter" :class="{active:currentLogFilter==='api'}" data-filter="api" type="button" @click="currentLogFilter='api'">只看 API</button>
               <button class="chip-btn log-filter" :class="{active:currentLogFilter==='image'}" data-filter="image" type="button" @click="currentLogFilter='image'">只看图片</button>
             </div>
-            <div id="v_logs" class="logs" aria-live="polite" ref="logBox">
-              <div v-if="!filteredLogs.length" class="log-empty">{{ latestLogRows.length ? '当前筛选无匹配日志' : '暂无访问日志' }}</div>
-              <div v-for="(l,idx) in filteredLogs" :key="idx" class="log-entry" :class="{error:Number(l.status)>=400}">
-                <div class="log-time">{{ formatTs(l.time) }}</div>
-                <div class="log-pill" :class="classifyStatus(l.status)">{{ l.status || '-' }}</div>
-                <div class="log-pill" :title="String(l.type||'other')">{{ formatLogType(l.type) }}</div>
-                <div class="log-pill" :class="classifyCache(l.cache)" :title="String(l.cache||'-')">{{ formatCacheLabel(l.cache) }}</div>
-                <div class="log-body">{{ l.method }} {{ l.path }} · {{ l.durationMs }}ms · {{ l.ip }} · {{ formatBytes(l.bytes) }}</div>
+            <div class="log-layout">
+              <div id="v_logs" class="logs log-list" aria-live="polite" ref="logBox">
+                <div v-if="!filteredLogs.length" class="log-empty">{{ latestLogRows.length ? '当前筛选无匹配日志' : '暂无访问日志' }}</div>
+                <div v-for="(l,idx) in filteredLogs" :key="logKey(l,idx)" class="log-entry" :class="{error:Number(l.status)>=400, active: selectedLogKey===logKey(l,idx)}" @click="selectLog(l, idx)">
+                  <div class="log-time">{{ formatTs(l.time) }}</div>
+                  <div class="log-pill" :class="classifyStatus(l.status)">{{ l.status || '-' }}</div>
+                  <div class="log-pill" :title="String(l.type||'other')">{{ formatLogType(l.type) }}</div>
+                  <div class="log-pill" :class="classifyCache(l.cache)" :title="String(l.cache||'-')">{{ formatCacheLabel(l.cache) }}</div>
+                  <div class="log-body">{{ l.method }} {{ l.path }} · {{ l.durationMs }}ms · {{ formatBytes(l.bytes) }}</div>
+                </div>
               </div>
+              <aside class="log-detail">
+                <h3>条目详情</h3>
+                <template v-if="selectedLog">
+                  <dl class="kv">
+                    <dt>时间</dt><dd>{{ formatTs(selectedLog.time) }}</dd>
+                    <dt>方法</dt><dd>{{ selectedLog.method || '-' }}</dd>
+                    <dt>路径</dt><dd>{{ selectedLog.path || '-' }}</dd>
+                    <dt>状态</dt><dd>{{ selectedLog.status || '-' }}</dd>
+                    <dt>类型</dt><dd>{{ formatLogType(selectedLog.type) }} ({{ selectedLog.type || 'other' }})</dd>
+                    <dt>缓存</dt><dd>{{ formatCacheLabel(selectedLog.cache) }} / {{ selectedLog.cache || '-' }}</dd>
+                    <dt>耗时</dt><dd>{{ selectedLog.durationMs != null ? selectedLog.durationMs + ' ms' : '-' }}</dd>
+                    <dt>大小</dt><dd>{{ formatBytes(selectedLog.bytes) }}</dd>
+                    <dt>IP</dt><dd>{{ selectedLog.ip || '-' }}</dd>
+                    <dt>上游</dt><dd>{{ selectedLog.upstream || selectedLog.target || selectedLog.host || (String(selectedLog.type||'').startsWith('upstream') ? 'UPSTREAM' : '-') }}</dd>
+                  </dl>
+                </template>
+                <div v-else class="log-empty">点击左侧日志查看 path / 缓存 / 字节等详情</div>
+              </aside>
             </div>
           </div>
         </aside>
@@ -570,6 +649,28 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
         });
 
         function fmt(n) { return formatNumber(n); }
+        function animateNumber(key, toValue) {
+          const to = Number(toValue) || 0;
+          const from = Number(display[key]) || 0;
+          if (from === to) { display[key] = to; return; }
+          if (animTimers[key]) cancelAnimationFrame(animTimers[key]);
+          const start = performance.now(); const dur = 450;
+          function step(now) {
+            const p = Math.min(1, (now - start) / dur);
+            const eased = 1 - Math.pow(1 - p, 3);
+            display[key] = Math.round(from + (to - from) * eased);
+            if (p < 1) animTimers[key] = requestAnimationFrame(step);
+            else display[key] = to;
+          }
+          animTimers[key] = requestAnimationFrame(step);
+        }
+        function logKey(l, idx) {
+          return String(l.time || '') + '|' + String(l.path || '') + '|' + String(l.status || '') + '|' + idx;
+        }
+        function selectLog(l, idx) {
+          selectedLog.value = l;
+          selectedLogKey.value = logKey(l, idx);
+        }
         function formatTs(time) { return new Date(time).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }); }
         function setTheme(theme) {
           const found = THEMES.find(([key]) => key === theme) || THEMES[0];
@@ -605,7 +706,7 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
           document.body.classList.add('bg-mode-tmdb');
           document.body.classList.remove('bg-mode-night');
           for (let i = 0; i < NIGHT_WALLS.length; i++) document.body.classList.remove('wall-night-' + i);
-          if (path) setBackground('/t/p/original' + path);
+          if (path) setBackground('/t/p/w1280' + path);
         }
         function setConnection(kind, text) { connection.kind = kind; connection.text = text; }
         function setDrawer(open) {
@@ -729,7 +830,24 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
               errRateNote.value = '增量请求: ' + dTotal;
             }
             prevSample.total = metrics.total || 0; prevSample.err = errCount; prevSample.ts = now;
-            latestLogRows.value = Array.isArray(logs) ? logs : [];
+            const nextLogs = Array.isArray(logs) ? logs : [];
+            // incremental-ish: only replace when signature changes (tail fingerprint)
+            const sig = nextLogs.length + ':' + (nextLogs.length ? (nextLogs[nextLogs.length-1].time + '|' + nextLogs[nextLogs.length-1].path) : '');
+            if (sig !== lastLogSig) {
+              latestLogRows.value = nextLogs;
+              lastLogSig = sig;
+              // keep selection if still present
+              if (selectedLog.value) {
+                const k = selectedLogKey.value;
+                const still = nextLogs.findIndex((row, i) => logKey(row, i) === k);
+                if (still < 0) { selectedLog.value = nextLogs[nextLogs.length-1] || null; selectedLogKey.value = selectedLog.value ? logKey(selectedLog.value, nextLogs.length-1) : ''; }
+              }
+            }
+            animateNumber('total', metrics.total || 0);
+            display.hitRate = hitRateText.value;
+            display.rps = rpsText.value;
+            display.errorRate = errorRateText.value;
+            bootingMetrics.value = false;
             updateAlert(diskPct.value, memPct.value);
             refreshedAt.value = new Date().toLocaleTimeString('zh-CN', { hour12: false });
             setConnection('ok', '连接正常');
@@ -791,7 +909,7 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
           refreshPaused.value = !refreshPaused.value;
           setConnection(refreshPaused.value ? 'warn' : 'ok', refreshPaused.value ? '已暂停刷新' : '连接正常');
         }
-        function clearLogs() { latestLogRows.value = []; }
+        function clearLogs() { latestLogRows.value = []; selectedLog.value = null; selectedLogKey.value = ''; lastLogSig = ''; }
 
         async function logout(soft) {
           try { await fetch('/admin/logout', { method: 'POST', credentials: 'same-origin' }); } catch (e) {}
@@ -828,8 +946,8 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
           metrics, statusRows, statusBars, imgHitRate, apiHitRate, hitRateText, rpsText, errorRateText, errRateNote,
           diskPct, memPct, diskUsageText, diskPath, memUsageText, memCountText, imgCacheChips, apiCacheChips,
           latestLogRows, filteredLogs, currentLogFilter, logFilterInfo, autoScroll, refreshPaused,
-          drawerOpen, alertText, clearBusy, clearLabel, themeLabel, bgModeLabel, bgActionLabel, logBox,
-          fmt, formatTs, formatBytes, formatLogType, formatCacheLabel, classifyStatus, classifyCache,
+          drawerOpen, alertText, clearBusy, clearLabel, themeLabel, bgModeLabel, bgActionLabel, logBox, bootingMetrics, display, selectedLog, selectedLogKey, imgHitPct, apiHitPct,
+          fmt, formatTs, formatBytes, formatLogType, formatCacheLabel, classifyStatus, classifyCache, logKey, selectLog,
           login, loadDashboard, changeBg, cycleBgMode, clearCache, togglePause, clearLogs, cycleTheme, setDrawer, logout
         };
       }

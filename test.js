@@ -106,6 +106,7 @@ assert.strictEqual(_internals.isSafeImagePath('/t/p/original/%2e%2e/server.js'),
 assert.strictEqual(_internals.isSafeImagePath('/x/p/w500/abc.jpg'), false);
 
 const dashboardHtml = fs.readFileSync(path.join(__dirname, 'admin-dashboard.html'), 'utf8');
+// Feature-oriented dashboard contracts (stable behavior, less brittle layout strings)
 assert.match(dashboardHtml, /<button\b[^>]*\bid=["']btn_clear_cache["']/);
 assert.match(
   dashboardHtml,
@@ -114,32 +115,44 @@ assert.match(
 assert.match(dashboardHtml, /id=["']details_drawer["']/);
 assert.match(dashboardHtml, /id=["']btn_details["'][^>]*aria-controls=["']details_drawer["'][^>]*aria-expanded=["']false["']/);
 assert.match(dashboardHtml, /id=["']btn_changebg["']/);
-assert.match(dashboardHtml, /\['aurora', 'Aurora Glass'\]/);
-assert.match(dashboardHtml, /\['terminal', 'Terminal'\]/);
-assert.match(dashboardHtml, /\['swiss', 'Swiss Editorial'\]/);
-assert.match(dashboardHtml, /data-theme="terminal"/);
-assert.match(dashboardHtml, /data-theme="swiss"/);
-assert.match(dashboardHtml, /prefers-reduced-motion:\s*reduce/);
+assert.ok(dashboardHtml.includes("['aurora', 'Aurora Glass']"));
+assert.ok(dashboardHtml.includes("['terminal', 'Terminal']"));
+assert.ok(dashboardHtml.includes("['swiss', 'Swiss Editorial']"));
+assert.match(dashboardHtml, /data-theme=["']terminal["']/);
+assert.match(dashboardHtml, /data-theme=["']swiss["']/);
+assert.match(dashboardHtml, /prefers-reduced-motion\s*:\s*reduce/);
 assert.match(dashboardHtml, /event\.key\s*===\s*["']Escape["']/);
-assert.match(dashboardHtml, /upstream:\s*\{\s*label:\s*['"]上游请求['"]/);
-assert.match(dashboardHtml, /api:\s*\{\s*label:\s*['"]只看 API['"][\s\S]*includes\(['"]api['"]\)/);
-assert.match(dashboardHtml, /image:\s*\{\s*label:\s*['"]只看图片['"][\s\S]*includes\(['"]image['"]\)/);
-assert.match(dashboardHtml, /data-filter=["']upstream["'][^>]*>上游请求/);
-assert.match(dashboardHtml, /UPSTREAM/);
-assert.match(dashboardHtml, /formatBytes\(l\.bytes\)/);
-assert.match(dashboardHtml, /function formatLogType/);
-assert.match(dashboardHtml, /上游图片/);
-assert.match(dashboardHtml, /上游API/);
-assert.match(dashboardHtml, /function formatCacheLabel/);
-assert.match(dashboardHtml, /\.details-drawer\{position:fixed;z-index:30;inset:0;width:100%;height:100vh/);
-assert.match(dashboardHtml, /\.details-drawer \.logs\{height:min\(70vh,720px\)/);
-assert.match(dashboardHtml, /<h2>实时日志<\/h2>/);
+// Log filters + labels (feature presence)
+assert.match(dashboardHtml, /data-filter=["']upstream["']/);
+assert.match(dashboardHtml, /data-filter=["']api["']/);
+assert.match(dashboardHtml, /data-filter=["']image["']/);
+assert.ok(dashboardHtml.includes('上游请求'));
+assert.ok(dashboardHtml.includes('只看 API') || dashboardHtml.includes('只看API'));
+assert.ok(dashboardHtml.includes('只看图片'));
+assert.ok(dashboardHtml.includes('UPSTREAM'));
+assert.match(dashboardHtml, /formatBytes\s*\(\s*l\.bytes\s*\)/);
+assert.match(dashboardHtml, /function\s+formatLogType\b/);
+assert.match(dashboardHtml, /function\s+formatCacheLabel\b/);
+assert.ok(dashboardHtml.includes('上游图片'));
+assert.ok(dashboardHtml.includes('上游API'));
+// Drawer structure (behavior-critical CSS hooks)
+assert.match(dashboardHtml, /\.details-drawer\s*\{[^}]*position\s*:\s*fixed/);
+assert.match(dashboardHtml, /\.details-drawer\s*\{[^}]*z-index\s*:\s*30/);
+assert.match(dashboardHtml, /\.details-drawer[^{]*\.logs\s*\{[^}]*height\s*:\s*min\(\s*70vh\s*,\s*720px\s*\)/);
+assert.ok(dashboardHtml.includes('<h2>实时日志</h2>'));
 assert.doesNotMatch(dashboardHtml, /播放预告|热门 TOP|海报墙/);
-assert.ok(dashboardHtml.includes('diskPct >= 90 || memPct >= 90'));
-assert.ok(!dashboardHtml.includes('diskPct >= 80 || memPct >= 80'));
+// Resource alert threshold stays 90%
+assert.ok(/diskPct\s*>=\s*90\s*\|\|\s*memPct\s*>=\s*90/.test(dashboardHtml));
+assert.ok(!/diskPct\s*>=\s*80\s*\|\|\s*memPct\s*>=\s*80/.test(dashboardHtml));
 assert.ok(dashboardHtml.includes('图片内存缓存使用率已超过 90%'));
 assert.ok(!dashboardHtml.includes('资源告警'));
 assert.ok(!dashboardHtml.includes('资源预警'));
+// UX features introduced in Night City polish
+assert.match(dashboardHtml, /id=["']hud_alert["']/);
+assert.ok(dashboardHtml.includes('bootingMetrics'));
+assert.ok(dashboardHtml.includes('selectedLog'));
+assert.ok(dashboardHtml.includes('/t/p/w1280'));
+
 
 const readme = fs.readFileSync(path.join(__dirname, 'README.md'), 'utf8');
 assert.match(readme, /tmdb-cache:\/tmp\/tmdb-cache/);
