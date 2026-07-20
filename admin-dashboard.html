@@ -318,16 +318,11 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
 .vlog-view{position:absolute;left:0;right:0;top:0;will-change:transform}
 .cache-card .chip-row{display:none}
 .empty-hint{margin-top:8px;padding:8px 10px;border:1px dashed color-mix(in srgb,var(--cyan) 35%,transparent);color:var(--muted);font-size:12px;line-height:1.45;background:rgba(0,0,0,.18)}
-.dock-more-wrap{position:relative}
-.dock-more-menu{display:none;position:absolute;right:0;bottom:calc(100% + 8px);min-width:180px;padding:8px;background:rgba(8,0,14,.96);border:1px solid color-mix(in srgb,var(--pink) 40%,transparent);box-shadow:0 12px 40px rgba(0,0,0,.45);z-index:40}
-.dock-more-menu.open{display:grid;gap:6px}
-.dock-more-menu .dock-btn{width:100%}
 .drawer-alert-cfg{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 12px;font-family:var(--mono);font-size:12px;color:var(--muted)}
 .drawer-alert-cfg input{width:64px;padding:6px 8px;border:1px solid color-mix(in srgb,var(--cyan) 35%,transparent);background:rgba(0,0,0,.35);color:var(--ink);font-family:var(--mono)}
 @media (max-width:900px){
   .log-layout{grid-template-columns:1fr;grid-template-rows:minmax(220px,1fr) minmax(180px,.85fr)}
   .log-detail{max-height:40vh}
-  .dock .dock-btn.secondary-hide{display:none}
 }
 .cache-card{display:flex;flex-direction:column;min-height:248px}
 .cache-card .split-value{margin-top:4px}
@@ -460,17 +455,8 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
         <nav class="action-dock" aria-label="快捷操作">
           <button id="btn_refresh" class="dock-btn" type="button" @click="loadDashboard({force:true})">立即刷新</button>
           <button id="btn_details" class="dock-btn" type="button" aria-controls="details_drawer" aria-expanded="false" @click="setDrawer(!drawerOpen)">查看日志</button>
-          <button id="btn_bg_mode" class="dock-btn secondary-hide" type="button" @click="cycleBgMode">壁纸：{{ bgModeLabel }}</button>
-          <button id="btn_changebg" class="dock-btn secondary-hide" type="button" @click="changeBg">{{ bgActionLabel }}</button>
-          <div class="dock-more-wrap">
-            <button id="btn_more" class="dock-btn" type="button" @click="dockMoreOpen=!dockMoreOpen" :aria-expanded="dockMoreOpen?'true':'false'">更多</button>
-            <div class="dock-more-menu" :class="{open:dockMoreOpen}">
-              <button class="dock-btn" type="button" @click="cycleBgMode(); dockMoreOpen=false">壁纸：{{ bgModeLabel }}</button>
-              <button class="dock-btn" type="button" @click="changeBg(); dockMoreOpen=false">{{ bgActionLabel }}</button>
-              <button class="dock-btn" type="button" @click="cycleTheme(); dockMoreOpen=false">主题：{{ themeLabel }}</button>
-              <button class="dock-btn" type="button" @click="togglePause(); dockMoreOpen=false">{{ refreshPaused ? '继续刷新' : '暂停刷新' }}</button>
-            </div>
-          </div>
+          <button id="btn_bg_mode" class="dock-btn" type="button" @click="cycleBgMode">壁纸：{{ bgModeLabel }}</button>
+          <button id="btn_changebg" class="dock-btn" type="button" @click="changeBg">{{ bgActionLabel }}</button>
           <span class="dock-divider" aria-hidden="true"></span>
           <button id="btn_clear_cache" class="dock-btn primary" type="button" :disabled="clearBusy" @click="clearCache">{{ clearLabel }}</button>
         </nav>
@@ -669,7 +655,6 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
         const animTimers = Object.create(null);
         let lastLogSig = '';
         let lastLogSince = '';
-        const dockMoreOpen = ref(false);
         const alertPct = ref((() => {
           const n = Number(localStorage.getItem('tmdb_alert_pct'));
           return Number.isFinite(n) ? n : 90;
@@ -825,8 +810,7 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
           if (path) setBackground('/t/p/w1280' + path);
         }
         function setConnection(kind, text) { connection.kind = kind; connection.text = text; }
-        function setDrawer(open) { dockMoreOpen.value = false;
-          drawerOpen.value = !!open;
+        function setDrawer(open) { drawerOpen.value = !!open;
           document.body.classList.toggle('drawer-open', !!open);
           const btn = document.getElementById('btn_details');
           if (btn) btn.setAttribute('aria-expanded', String(!!open));
@@ -1079,7 +1063,7 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
           diskPct, memPct, diskUsageText, diskPath, memUsageText, memCountText, imgCacheChips, apiCacheChips,
           latestLogRows, filteredLogs, currentLogFilter, logFilterInfo, autoScroll, refreshPaused,
           drawerOpen, alertText, clearBusy, clearLabel, themeLabel, bgModeLabel, bgActionLabel, logBox, bootingMetrics, display, selectedLog, selectedLogKey, imgHitPct, apiHitPct,
-          dockMoreOpen, alertPct, virtualLogs, virtualOffset, virtualTotalH,
+          alertPct, virtualLogs, virtualOffset, virtualTotalH,
           fmt, formatTs, formatBytes, formatLogType, formatCacheLabel, classifyStatus, classifyCache, logKey, selectLog, onLogScroll, persistAlertPct,
           login, loadDashboard, changeBg, cycleBgMode, clearCache, togglePause, clearLogs, cycleTheme, setDrawer, logout
         };
