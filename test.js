@@ -130,7 +130,7 @@ assert.ok(dashboardHtml.includes('上游请求'));
 assert.ok(dashboardHtml.includes('只看 API') || dashboardHtml.includes('只看API'));
 assert.ok(dashboardHtml.includes('只看图片'));
 assert.ok(dashboardHtml.includes('UPSTREAM'));
-assert.match(dashboardHtml, /formatBytes\s*\(\s*l\.bytes\s*\)/);
+assert.ok(/formatBytes\s*\(\s*(?:l|item\.l)\.bytes\s*\)/.test(dashboardHtml));
 assert.match(dashboardHtml, /function\s+formatLogType\b/);
 assert.match(dashboardHtml, /function\s+formatCacheLabel\b/);
 assert.ok(dashboardHtml.includes('上游图片'));

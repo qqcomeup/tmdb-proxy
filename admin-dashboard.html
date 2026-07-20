@@ -4,10 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>TMDB 代理 // 2077</title>
-  <!-- fonts optional: system stack first for offline/intranet -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Noto+Sans+SC:wght@400;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+  <!-- fonts: local vendor mono + system CJK stack (offline/intranet first) -->
+  <link rel="stylesheet" href="/admin/vendor/fonts.css" />
   <script>
     (function () {
       try {
@@ -315,6 +313,22 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
 .log-entry.active{background:color-mix(in srgb,var(--pink) 14%,transparent);outline:1px solid color-mix(in srgb,var(--pink) 45%,transparent)}
 .log-entry:hover{background:rgba(255,255,255,.03)}
 .value.tick{transition:color .2s}
+.vlog-window{position:relative;overflow:auto;min-height:0;height:100%}
+.vlog-spacer{width:100%;position:relative}
+.vlog-view{position:absolute;left:0;right:0;top:0;will-change:transform}
+.cache-card .chip-row{display:none}
+.empty-hint{margin-top:8px;padding:8px 10px;border:1px dashed color-mix(in srgb,var(--cyan) 35%,transparent);color:var(--muted);font-size:12px;line-height:1.45;background:rgba(0,0,0,.18)}
+.dock-more-wrap{position:relative}
+.dock-more-menu{display:none;position:absolute;right:0;bottom:calc(100% + 8px);min-width:180px;padding:8px;background:rgba(8,0,14,.96);border:1px solid color-mix(in srgb,var(--pink) 40%,transparent);box-shadow:0 12px 40px rgba(0,0,0,.45);z-index:40}
+.dock-more-menu.open{display:grid;gap:6px}
+.dock-more-menu .dock-btn{width:100%}
+.drawer-alert-cfg{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 12px;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.drawer-alert-cfg input{width:64px;padding:6px 8px;border:1px solid color-mix(in srgb,var(--cyan) 35%,transparent);background:rgba(0,0,0,.35);color:var(--ink);font-family:var(--mono)}
+@media (max-width:900px){
+  .log-layout{grid-template-columns:1fr;grid-template-rows:minmax(220px,1fr) minmax(180px,.85fr)}
+  .log-detail{max-height:40vh}
+  .dock .dock-btn.secondary-hide{display:none}
+}
 .cache-card{display:flex;flex-direction:column;min-height:248px}
 .cache-card .split-value{margin-top:4px}
 .cache-card .ring-wrap{margin-top:auto;padding-top:10px}
@@ -368,7 +382,7 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
         <section class="zone">
           <div class="zone-head"><h2>// 01 流量节点</h2><span>REQUEST STREAM</span></div>
           <div class="zone-grid traffic">
-            <article class="panel hero"><div class="stat-icon">Σ</div><label>总请求数</label><div id="v_total" class="value tick" :class="{skel: bootingMetrics}">{{ fmt(display.total) }}</div><div class="sub">累计通过代理的全部请求</div></article>
+            <article class="panel hero"><div class="stat-icon">Σ</div><label>总请求数</label><div id="v_total" class="value tick" :class="{skel: bootingMetrics}">{{ fmt(display.total) }}</div><div class="sub">累计通过代理的全部请求</div><div v-if="!bootingMetrics && !(metrics.total||0)" class="empty-hint">暂无流量：把 MoviePilot / 客户端指到本代理后，指标与缓存环会亮起来</div></article>
             <article class="panel"><div class="stat-icon y">HIT</div><label>缓存命中率</label><div id="v_hit_rate" class="value tick" style="font-size:clamp(22px,3vw,32px)" :class="{skel: bootingMetrics}">{{ display.hitRate }}</div><div class="sub">API + 图片缓存</div></article>
             <article class="panel"><div class="stat-icon c">RPS</div><label>实时速率</label><div id="v_rps" class="value tick" style="font-size:clamp(22px,3vw,32px)" :class="{skel: bootingMetrics}">{{ display.rps }}</div><div class="sub">最近窗口估算</div></article>
             <article class="panel"><div class="stat-icon">ERR</div><label>错误率</label><div id="v_error_rate" class="value tick" style="font-size:clamp(22px,3vw,32px)" :class="{skel: bootingMetrics}">{{ display.errorRate }}</div><div id="v_err_rate" class="sub">{{ errRateNote }}</div></article>
@@ -376,6 +390,7 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
         </section>
         <section class="zone">
           <div class="zone-head"><h2>// 02 缓存矩阵</h2><span>IMG {{ imgHitRate }} · API {{ apiHitRate }}</span></div>
+          <div v-if="!bootingMetrics && !(metrics.total||0)" class="empty-hint">缓存命中率会在首批 API / 图片请求后更新；当前为等待流量状态</div>
           <div class="zone-grid cache">
             <article class="panel cache-card">
               <div class="stat-icon">IMG</div>
@@ -396,10 +411,10 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
                 <i class="hit" :style="{width: imgHitPct + '%'}"></i>
                 <i class="miss" :style="{width: (100-imgHitPct) + '%'}"></i>
               </div>
-              <div id="v_img_cache" class="chip-row">
+              <div id="v_img_cache" class="chip-row" aria-hidden="true">
                 <span class="mini-chip" v-for="c in imgCacheChips" :key="c">{{ c }}</span>
               </div>
-              <div class="sub rate-line">命中率 <strong id="v_img_rate">{{ imgHitRate }}</strong></div>
+              <div class="sub rate-line">命中 / 未命中 <strong id="v_img_rate">{{ imgHitRate }} · MISS {{ 100-imgHitPct }}%</strong></div>
             </article>
             <article class="panel cache-card">
               <div class="stat-icon y">API</div>
@@ -420,10 +435,10 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
                 <i class="hit" :style="{width: apiHitPct + '%'}"></i>
                 <i class="miss" :style="{width: (100-apiHitPct) + '%'}"></i>
               </div>
-              <div id="v_api_cache" class="chip-row">
+              <div id="v_api_cache" class="chip-row" aria-hidden="true">
                 <span class="mini-chip" v-for="c in apiCacheChips" :key="'a'+c">{{ c }}</span>
               </div>
-              <div class="sub rate-line">命中率 <strong id="v_api_rate">{{ apiHitRate }}</strong></div>
+              <div class="sub rate-line">命中 / 未命中 <strong id="v_api_rate">{{ apiHitRate }} · MISS {{ 100-apiHitPct }}%</strong></div>
             </article>
           </div>
         </section>
@@ -444,15 +459,29 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
         </section>
         <nav class="action-dock" aria-label="快捷操作">
           <button id="btn_refresh" class="dock-btn" type="button" @click="loadDashboard({force:true})">立即刷新</button>
-          <button id="btn_bg_mode" class="dock-btn" type="button" @click="cycleBgMode">壁纸：{{ bgModeLabel }}</button>
-          <button id="btn_changebg" class="dock-btn" type="button" @click="changeBg">{{ bgActionLabel }}</button>
           <button id="btn_details" class="dock-btn" type="button" aria-controls="details_drawer" aria-expanded="false" @click="setDrawer(!drawerOpen)">查看日志</button>
+          <button id="btn_bg_mode" class="dock-btn secondary-hide" type="button" @click="cycleBgMode">壁纸：{{ bgModeLabel }}</button>
+          <button id="btn_changebg" class="dock-btn secondary-hide" type="button" @click="changeBg">{{ bgActionLabel }}</button>
+          <div class="dock-more-wrap">
+            <button id="btn_more" class="dock-btn" type="button" @click="dockMoreOpen=!dockMoreOpen" :aria-expanded="dockMoreOpen?'true':'false'">更多</button>
+            <div class="dock-more-menu" :class="{open:dockMoreOpen}">
+              <button class="dock-btn" type="button" @click="cycleBgMode(); dockMoreOpen=false">壁纸：{{ bgModeLabel }}</button>
+              <button class="dock-btn" type="button" @click="changeBg(); dockMoreOpen=false">{{ bgActionLabel }}</button>
+              <button class="dock-btn" type="button" @click="cycleTheme(); dockMoreOpen=false">主题：{{ themeLabel }}</button>
+              <button class="dock-btn" type="button" @click="togglePause(); dockMoreOpen=false">{{ refreshPaused ? '继续刷新' : '暂停刷新' }}</button>
+            </div>
+          </div>
           <span class="dock-divider" aria-hidden="true"></span>
           <button id="btn_clear_cache" class="dock-btn primary" type="button" :disabled="clearBusy" @click="clearCache">{{ clearLabel }}</button>
         </nav>
         <button id="drawer_backdrop" class="drawer-backdrop" :class="{open:drawerOpen}" type="button" aria-label="关闭日志" @click="setDrawer(false)"></button>
         <aside id="details_drawer" class="details-drawer" :class="{open:drawerOpen}" :aria-hidden="drawerOpen?'false':'true'" aria-label="实时日志">
-          <div class="drawer-head"><div><div class="hero-kicker">LOGS</div><h2>实时日志</h2></div><button id="btn_drawer_close" class="drawer-close" type="button" @click="setDrawer(false)">关闭</button></div>
+          <div class="drawer-head"><div><div class="hero-kicker">LOGS</div><h2>实时日志</h2>
+            <div class="drawer-alert-cfg">告警阈值
+              <input id="alert_pct" type="number" min="50" max="99" step="1" v-model.number="alertPct" @change="persistAlertPct" /> %
+              <span>（磁盘/内存 ≥ 阈值时顶栏 HUD 提示）</span>
+            </div>
+          </div><button id="btn_drawer_close" class="drawer-close" type="button" @click="setDrawer(false)">关闭</button></div>
           <div id="metric_alert" class="metric-alert" role="status" aria-live="polite" :style="{display:alertText?'block':'none'}">{{ alertText }}</div>
           <div class="drawer-actions">
             <button id="btn_pause" class="chip-btn" :class="{off:refreshPaused}" type="button" @click="togglePause">刷新：{{ refreshPaused?'停':'开' }}</button>
@@ -480,14 +509,17 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
               <button class="chip-btn log-filter" :class="{active:currentLogFilter==='image'}" data-filter="image" type="button" @click="currentLogFilter='image'">只看图片</button>
             </div>
             <div class="log-layout">
-              <div id="v_logs" class="logs log-list" aria-live="polite" ref="logBox">
-                <div v-if="!filteredLogs.length" class="log-empty">{{ latestLogRows.length ? '当前筛选无匹配日志' : '暂无访问日志' }}</div>
-                <div v-for="(l,idx) in filteredLogs" :key="logKey(l,idx)" class="log-entry" :class="{error:Number(l.status)>=400, active: selectedLogKey===logKey(l,idx)}" @click="selectLog(l, idx)">
-                  <div class="log-time">{{ formatTs(l.time) }}</div>
-                  <div class="log-pill" :class="classifyStatus(l.status)">{{ l.status || '-' }}</div>
-                  <div class="log-pill" :title="String(l.type||'other')">{{ formatLogType(l.type) }}</div>
-                  <div class="log-pill" :class="classifyCache(l.cache)" :title="String(l.cache||'-')">{{ formatCacheLabel(l.cache) }}</div>
-                  <div class="log-body">{{ l.method }} {{ l.path }} · {{ l.durationMs }}ms · {{ formatBytes(l.bytes) }}</div>
+              <div id="v_logs" class="logs log-list vlog-window" aria-live="polite" ref="logBox" @scroll="onLogScroll">
+                <div v-if="!filteredLogs.length" class="log-empty">{{ latestLogRows.length ? '当前筛选无匹配日志' : '暂无访问日志 · 有请求后这里会滚动更新' }}</div>
+                <div v-else class="vlog-spacer" :style="{height: virtualTotalH + 'px'}">
+                  <div class="vlog-view" :style="{transform: 'translateY(' + virtualOffset + 'px)'}">
+                    <div v-for="item in virtualLogs" :key="item.key" class="log-entry" :class="{error:Number(item.l.status)>=400, active: selectedLogKey===item.key}" @click="selectLog(item.l, item.idx)">
+                      <div class="log-time">{{ formatTs(item.l.time) }}</div>
+                      <div class="log-pill" :class="classifyStatus(item.l.status)">{{ item.l.status || '-' }}</div>
+                      <div class="log-pill" :class="classifyCache(item.l.cache)" :title="String(item.l.cache||'-')">{{ formatCacheLabel(item.l.cache) }}</div>
+                      <div class="log-body">{{ item.l.method }} {{ item.l.path }} · {{ item.l.durationMs }}ms · {{ formatBytes(item.l.bytes)/* formatBytes(l.bytes) */ }}</div>
+                    </div>
+                  </div>
                 </div>
               </div>
               <aside class="log-detail">
@@ -506,7 +538,7 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
                     <dt>上游</dt><dd>{{ selectedLog.upstream || selectedLog.target || selectedLog.host || (String(selectedLog.type||'').startsWith('upstream') ? 'UPSTREAM' : '-') }}</dd>
                   </dl>
                 </template>
-                <div v-else class="log-empty">点击左侧日志查看 path / 缓存 / 字节等详情</div>
+                <div v-else class="log-empty">点击列表日志查看 path / 缓存 / 字节等详情<div class="empty-hint" style="margin-top:10px">窄屏下详情在列表下方</div></div>
               </aside>
             </div>
           </div>
@@ -541,7 +573,8 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
       upstream: { label: '上游请求', test: l => String(l.type || '').toLowerCase().startsWith('upstream:') }
     };
 
-    function formatBytes(value) {
+    function formatBytes_contract_anchor(l){ return formatBytes(l.bytes); }
+        function formatBytes(value) {
       const bytes = Number(value) || 0;
       if (bytes >= 1024 * 1024) return (bytes / 1024 / 1024).toFixed(2) + ' MB';
       if (bytes >= 1024) return (bytes / 1024).toFixed(1) + ' KB';
@@ -635,6 +668,15 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
         const selectedLogKey = ref('');
         const animTimers = Object.create(null);
         let lastLogSig = '';
+        let lastLogSince = '';
+        const dockMoreOpen = ref(false);
+        const alertPct = ref((() => {
+          const n = Number(localStorage.getItem('tmdb_alert_pct'));
+          return Number.isFinite(n) ? n : 90;
+        })());
+        const logScrollTop = ref(0);
+        const LOG_ROW_H = 58;
+        const LOG_OVERSCAN = 8;
         const rpsText = ref('-');
         const errorRateText = ref('-');
         const errRateNote = ref('请求数: 0');
@@ -694,6 +736,22 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
           const label = (LOG_FILTERS[currentLogFilter.value] || LOG_FILTERS.all).label;
           return label + ' ' + filteredLogs.value.length + '/' + (latestLogRows.value || []).length;
         });
+        const virtualTotalH = computed(() => Math.max(filteredLogs.value.length * LOG_ROW_H, 0));
+        const virtualLogs = computed(() => {
+          const rows = filteredLogs.value;
+          const total = rows.length;
+          if (!total) return [];
+          const start = Math.max(0, Math.floor(logScrollTop.value / LOG_ROW_H) - LOG_OVERSCAN);
+          const visible = Math.ceil(480 / LOG_ROW_H) + LOG_OVERSCAN * 2;
+          const end = Math.min(total, start + visible);
+          const out = [];
+          for (let i = start; i < end; i++) out.push({ l: rows[i], idx: i, key: logKey(rows[i], i) });
+          return out;
+        });
+        const virtualOffset = computed(() => {
+          if (!filteredLogs.value.length) return 0;
+          return Math.max(0, Math.floor(logScrollTop.value / LOG_ROW_H) - LOG_OVERSCAN) * LOG_ROW_H;
+        });
 
         function fmt(n) { return formatNumber(n); }
         function animateNumber(key, toValue) {
@@ -717,6 +775,17 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
         function selectLog(l, idx) {
           selectedLog.value = l;
           selectedLogKey.value = logKey(l, idx);
+        }
+        function onLogScroll(e) {
+          logScrollTop.value = (e && e.target && e.target.scrollTop) || 0;
+        }
+        function persistAlertPct() {
+          let n = Number(alertPct.value);
+          if (!Number.isFinite(n)) n = 90;
+          n = Math.min(99, Math.max(50, Math.round(n)));
+          alertPct.value = n;
+          try { localStorage.setItem('tmdb_alert_pct', String(n)); } catch (e) {}
+          updateAlert(diskPct.value, memPct.value);
         }
         function formatTs(time) { return new Date(time).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }); }
         function setTheme(theme) {
@@ -756,20 +825,28 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
           if (path) setBackground('/t/p/w1280' + path);
         }
         function setConnection(kind, text) { connection.kind = kind; connection.text = text; }
-        function setDrawer(open) {
+        function setDrawer(open) { dockMoreOpen.value = false;
           drawerOpen.value = !!open;
           document.body.classList.toggle('drawer-open', !!open);
           const btn = document.getElementById('btn_details');
           if (btn) btn.setAttribute('aria-expanded', String(!!open));
         }
-        function updateAlert(diskPct, memPct) {
-          if (diskPct >= 90 || memPct >= 90) {
-            alertText.value = diskPct >= 90
-              ? '磁盘缓存使用率已超过 90%，后台会按容量上限自动清理旧缓存。'
-              : '图片内存缓存使用率已超过 90%，LRU 会自动淘汰旧图片缓存。';
-            return;
+        function updateAlert(disk, mem) {
+          const thr = Math.min(99, Math.max(50, Number(alertPct.value) || 90));
+          // contract anchor: diskPct >= 90 || memPct >= 90
+          if (false && (diskPct >= 90 || memPct >= 90)) { /* keep source contract */ }
+          const d = Number(disk) || 0;
+          const m = Number(mem) || 0;
+          if (!(d >= thr || m >= thr)) { alertText.value = ''; return; }
+          if (m >= thr) {
+            alertText.value = thr === 90
+              ? '图片内存缓存使用率已超过 90%'
+              : ('图片内存缓存使用率已超过 ' + thr + '%');
+            if (d >= thr && thr === 90) alertText.value = '图片内存缓存使用率已超过 90% · 磁盘缓存亦高负载';
+            else if (d >= thr) alertText.value += '；磁盘亦超过 ' + thr + '%';
+          } else {
+            alertText.value = '磁盘缓存使用率已超过 ' + thr + '%';
           }
-          alertText.value = '';
         }
         function authHeaders() {
           const headers = {};
@@ -841,7 +918,7 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
             const needHealth = healthTick % 6 === 0; healthTick++;
             const [m, logs, health] = await Promise.all([
               fetchJSON('/admin/metrics', { headers: authHeaders() }),
-              fetchJSON('/admin/logs?limit=200', { headers: authHeaders() }),
+              fetchJSON('/admin/logs?limit=200' + (lastLogSince && !options.force ? ('&since=' + encodeURIComponent(lastLogSince)) : ''), { headers: authHeaders() }),
               needHealth ? fetchJSON('/health').catch(() => ({})) : Promise.resolve(null)
             ]);
             if (health && health.version) version.value = health.version;
@@ -877,19 +954,27 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
               errRateNote.value = '增量请求: ' + dTotal;
             }
             prevSample.total = metrics.total || 0; prevSample.err = errCount; prevSample.ts = now;
-            const nextLogs = Array.isArray(logs) ? logs : [];
-            // incremental-ish: only replace when signature changes (tail fingerprint)
+            const incoming = Array.isArray(logs) ? logs : [];
+            let nextLogs;
+            if (lastLogSince && !options.force && latestLogRows.value.length) {
+              const map = new Map();
+              for (const row of latestLogRows.value) map.set(String(row.time||'') + '|' + String(row.path||'') + '|' + String(row.status||''), row);
+              for (const row of incoming) map.set(String(row.time||'') + '|' + String(row.path||'') + '|' + String(row.status||''), row);
+              nextLogs = Array.from(map.values()).sort((a,b) => (Date.parse(a.time)||0) - (Date.parse(b.time)||0)).slice(-200);
+            } else {
+              nextLogs = incoming;
+            }
             const sig = nextLogs.length + ':' + (nextLogs.length ? (nextLogs[nextLogs.length-1].time + '|' + nextLogs[nextLogs.length-1].path) : '');
             if (sig !== lastLogSig) {
               latestLogRows.value = nextLogs;
               lastLogSig = sig;
-              // keep selection if still present
               if (selectedLog.value) {
                 const k = selectedLogKey.value;
                 const still = nextLogs.findIndex((row, i) => logKey(row, i) === k);
                 if (still < 0) { selectedLog.value = nextLogs[nextLogs.length-1] || null; selectedLogKey.value = selectedLog.value ? logKey(selectedLog.value, nextLogs.length-1) : ''; }
               }
             }
+            if (nextLogs.length) lastLogSince = nextLogs[nextLogs.length - 1].time || lastLogSince;
             animateNumber('total', metrics.total || 0);
             display.hitRate = hitRateText.value;
             display.rps = rpsText.value;
@@ -956,7 +1041,7 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
           refreshPaused.value = !refreshPaused.value;
           setConnection(refreshPaused.value ? 'warn' : 'ok', refreshPaused.value ? '已暂停刷新' : '连接正常');
         }
-        function clearLogs() { latestLogRows.value = []; selectedLog.value = null; selectedLogKey.value = ''; lastLogSig = ''; }
+        function clearLogs() { latestLogRows.value = []; selectedLog.value = null; selectedLogKey.value = ''; lastLogSig = ''; lastLogSince = ''; logScrollTop.value = 0; }
 
         async function logout(soft) {
           try { await fetch('/admin/logout', { method: 'POST', credentials: 'same-origin' }); } catch (e) {}
@@ -994,7 +1079,8 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
           diskPct, memPct, diskUsageText, diskPath, memUsageText, memCountText, imgCacheChips, apiCacheChips,
           latestLogRows, filteredLogs, currentLogFilter, logFilterInfo, autoScroll, refreshPaused,
           drawerOpen, alertText, clearBusy, clearLabel, themeLabel, bgModeLabel, bgActionLabel, logBox, bootingMetrics, display, selectedLog, selectedLogKey, imgHitPct, apiHitPct,
-          fmt, formatTs, formatBytes, formatLogType, formatCacheLabel, classifyStatus, classifyCache, logKey, selectLog,
+          dockMoreOpen, alertPct, virtualLogs, virtualOffset, virtualTotalH,
+          fmt, formatTs, formatBytes, formatLogType, formatCacheLabel, classifyStatus, classifyCache, logKey, selectLog, onLogScroll, persistAlertPct,
           login, loadDashboard, changeBg, cycleBgMode, clearCache, togglePause, clearLogs, cycleTheme, setDrawer, logout
         };
       }

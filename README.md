@@ -27,7 +27,10 @@ ghcr.io/qqcomeup/tmdb-proxy:latest
 - 运行状态、总请求量、实时 RPS、错误率
 - 图片 / API 缓存矩阵（对等双栏：计数 + 环形命中率 + hit/miss 比例条）
 - 磁盘 / 内存缓存占用与进度条；占用 ≥ 90% 时在顶栏 HUD 固定告警
-- 实时日志抽屉：列表 + 单条详情（path / status / cache / bytes / upstream）
+- 实时日志抽屉：虚拟列表 + 单条详情（path / status / cache / bytes / upstream）
+- 日志轮询支持 `/admin/logs?since=` 增量合并
+- 告警阈值默认 90%，可在日志抽屉调整并本地记住
+- 窄屏底栏「更多」菜单；零流量空状态提示
 - 清理缓存、暂停刷新、主题与壁纸切换
 
 视觉与主题：
@@ -38,7 +41,7 @@ ghcr.io/qqcomeup/tmdb-proxy:latest
   - `Aurora Glass`：暗色玻璃拟态
   - `Terminal`：终端运维风
   - `Swiss Editorial`：浅色排版风
-- Vue 3 与关键依赖从容器内 `/admin/vendor/*` 提供，内网/离线更稳
+- Vue 3、本地字体（JetBrains Mono）从容器内 `/admin/vendor/*` 提供，内网/离线更稳
 - 遵循 `prefers-reduced-motion`，减弱动画
 
 截图示例：

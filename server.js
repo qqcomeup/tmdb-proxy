@@ -1274,7 +1274,18 @@ async function handleAdminMetrics(req, res, query) {
 async function handleAdminLogs(req, res, query) {
   if (!checkAdminKey(req, query)) return send404(res);
   const limit = Math.min(1000, Math.max(1, Number(query.limit) || 200));
-  sendAdminJSONCompressed(req, res, 200, REQUEST_LOGS.slice(-limit));
+  let rows = REQUEST_LOGS;
+  const sinceRaw = query.since || query.after || '';
+  if (sinceRaw) {
+    const sinceTs = Date.parse(String(sinceRaw)) || Number(sinceRaw) || 0;
+    if (sinceTs > 0) {
+      rows = REQUEST_LOGS.filter((entry) => {
+        const t = Date.parse(entry && entry.time) || 0;
+        return t > sinceTs;
+      });
+    }
+  }
+  sendAdminJSONCompressed(req, res, 200, rows.slice(-limit));
 }
 
 async function handleAdminAuth(req, res) {
@@ -1359,6 +1370,8 @@ async function handleAdminVendor(req, res, pathname) {
     if (lower.endsWith('.js')) type = 'application/javascript; charset=utf-8';
     else if (lower.endsWith('.css')) type = 'text/css; charset=utf-8';
     else if (lower.endsWith('.map')) type = 'application/json; charset=utf-8';
+    else if (lower.endsWith('.woff2')) type = 'font/woff2';
+    else if (lower.endsWith('.woff')) type = 'font/woff';
     res.writeHead(200, {
       'Content-Type': type,
       'Cache-Control': 'public, max-age=604800, immutable',
