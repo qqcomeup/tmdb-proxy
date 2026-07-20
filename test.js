@@ -147,6 +147,8 @@ assert.ok(!/diskPct\s*>=\s*80\s*\|\|\s*memPct\s*>=\s*80/.test(dashboardHtml));
 assert.ok(dashboardHtml.includes('图片内存缓存使用率已超过 90%'));
 assert.ok(!dashboardHtml.includes('资源告警'));
 assert.ok(!dashboardHtml.includes('资源预警'));
+// alert threshold default must not treat Number(null) as 0
+assert.match(dashboardHtml, /raw\s*!=\s*null[\s\S]{0,80}Number\.isFinite\(n\)[\s\S]{0,40}90/);
 // UX features introduced in Night City polish
 assert.match(dashboardHtml, /id=["']hud_alert["']/);
 assert.ok(dashboardHtml.includes('bootingMetrics'));

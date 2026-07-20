@@ -10,6 +10,8 @@ yarn-error.log*
 cache/
 cache-test/
 cache-test-files/
+.screenshot-cache/
+package-lock.json
 logs/
 *.log
 *.pid

@@ -44,9 +44,19 @@ ghcr.io/qqcomeup/tmdb-proxy:latest
 - Vue 3、本地字体（JetBrains Mono）从容器内 `/admin/vendor/*` 提供，内网/离线更稳
 - 遵循 `prefers-reduced-motion`，减弱动画
 
-截图示例：
+截图示例（v3.0 管理面板，空白统计仅展示布局）：
+
+### 桌面端总览
 
 ![TMDB Proxy 桌面端管理面板](docs/images/admin-dashboard-desktop.webp)
+
+### 手机端
+
+<img src="docs/images/admin-dashboard-mobile.webp" alt="TMDB Proxy 手机端管理面板" width="390">
+
+### 实时日志抽屉
+
+![TMDB Proxy 实时日志抽屉](docs/images/admin-dashboard-details.webp)
 
 > 背景可为夜之城动态层或 TMDB 随机背景，实际显示会变化。截图不包含真实密钥、Cookie 或访问日志。
 

@@ -676,8 +676,10 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
         let lastLogSig = '';
         let lastLogSince = '';
         const alertPct = ref((() => {
-          const n = Number(localStorage.getItem('tmdb_alert_pct'));
-          return Number.isFinite(n) ? n : 90;
+          // getItem() returns null when unset; Number(null) === 0, so check raw first.
+          const raw = localStorage.getItem('tmdb_alert_pct');
+          const n = Number(raw);
+          return raw != null && raw !== '' && Number.isFinite(n) && n >= 50 && n <= 99 ? n : 90;
         })());
         const logScrollTop = ref(0);
         const copiedLogKey = ref('');
