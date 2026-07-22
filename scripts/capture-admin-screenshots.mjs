@@ -1,5 +1,5 @@
 /**
- * Capture admin dashboard screenshots for README/docs.
+ * Capture admin dashboard screenshots for README/docs (v3.1 themes).
  * Usage: node scripts/capture-admin-screenshots.mjs
  */
 import { chromium } from 'playwright';
@@ -112,16 +112,16 @@ async function pngToWebp(pngPath, webpPath, { maxHeight } = {}) {
   fs.unlinkSync(pngPath);
 }
 
-async function preparePage(context) {
-  await context.addInitScript(() => {
+async function preparePage(context, theme = 'aurora') {
+  await context.addInitScript((themeKey) => {
     try {
       localStorage.clear();
       sessionStorage.clear();
+      localStorage.setItem('tmdb_theme', themeKey);
       localStorage.setItem('tmdb_bg_mode', 'night');
-      localStorage.setItem('tmdb_theme', 'aurora');
       localStorage.setItem('tmdb_alert_pct', '90');
     } catch {}
-  });
+  }, theme);
 
   const page = await context.newPage();
   await page.goto(`${BASE}/admin/dashboard`, { waitUntil: 'networkidle' });
@@ -132,37 +132,18 @@ async function preparePage(context) {
     await page.locator('#btn').click();
   }
   await page.locator('#content').waitFor({ state: 'visible', timeout: 10000 });
-  await page.evaluate(() => {
-    document.documentElement.dataset.theme = 'aurora';
-    document.body.classList.add('bg-mode-night', 'wall-night-0');
-    document.body.classList.remove('bg-mode-tmdb');
+  await page.evaluate((themeKey) => {
+    document.documentElement.dataset.theme = themeKey;
+    if (themeKey === 'aurora') {
+      document.body.classList.add('bg-mode-night', 'wall-night-0');
+      document.body.classList.remove('bg-mode-tmdb');
+    }
     const diskPath = document.getElementById('v_disk_path');
     if (diskPath) diskPath.textContent = '/tmp/tmdb-cache';
-  });
-  // Wait for metrics first paint / empty-state text.
+  }, theme);
   await page.locator('#v_total').waitFor({ state: 'visible' });
   await wait(1000);
   return page;
-}
-
-async function forceAlertPct(page, value = 90) {
-  // Vue 3 v-model.number: set via native setter + input/change events.
-  await page.locator('#alert_pct').evaluate((el, v) => {
-    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
-    setter?.call(el, String(v));
-    el.dispatchEvent(new Event('input', { bubbles: true }));
-    el.dispatchEvent(new Event('change', { bubbles: true }));
-  }, value);
-  // Fallback: keyboard edit if still wrong
-  const current = await page.locator('#alert_pct').inputValue();
-  if (String(current) !== String(value)) {
-    await page.locator('#alert_pct').click({ clickCount: 3 });
-    await page.keyboard.type(String(value));
-    await page.keyboard.press('Tab');
-  }
-  await wait(200);
-  const finalVal = await page.locator('#alert_pct').inputValue();
-  console.log('alert_pct value =', finalVal);
 }
 
 async function main() {
@@ -171,7 +152,7 @@ async function main() {
   const browser = await chromium.launch({ headless: true });
 
   try {
-    // Desktop overview: taller viewport so action dock is fully visible.
+    // Night City desktop (default docs overview)
     {
       const context = await browser.newContext({
         viewport: { width: 1440, height: 1100 },
@@ -180,15 +161,14 @@ async function main() {
         timezoneId: 'Asia/Shanghai',
         reducedMotion: 'reduce',
       });
-      const page = await preparePage(context);
+      const page = await preparePage(context, 'aurora');
       const png = path.join(outDir, '_tmp-desktop.png');
       await page.screenshot({ path: png, fullPage: false });
       await pngToWebp(png, path.join(outDir, 'admin-dashboard-desktop.webp'), { maxHeight: 1100 });
-      console.log('wrote admin-dashboard-desktop.webp');
+      console.log('wrote admin-dashboard-desktop.webp (Night City)');
 
       await page.locator('#btn_details').click();
       await page.locator('#details_drawer.open').waitFor({ timeout: 5000 });
-      await forceAlertPct(page, 90);
       await page.evaluate(() => {
         const diskPath = document.getElementById('v_disk_path');
         if (diskPath) diskPath.textContent = '/tmp/tmdb-cache';
@@ -201,7 +181,41 @@ async function main() {
       await context.close();
     }
 
-    // Mobile overview.
+    // Neo Brutal desktop comparison
+    {
+      const context = await browser.newContext({
+        viewport: { width: 1440, height: 1100 },
+        deviceScaleFactor: 1,
+        locale: 'zh-CN',
+        timezoneId: 'Asia/Shanghai',
+        reducedMotion: 'reduce',
+      });
+      const page = await preparePage(context, 'neo');
+      const png = path.join(outDir, '_tmp-desktop-neo.png');
+      await page.screenshot({ path: png, fullPage: false });
+      await pngToWebp(png, path.join(outDir, 'admin-dashboard-desktop-neo.webp'), { maxHeight: 1100 });
+      console.log('wrote admin-dashboard-desktop-neo.webp');
+      await context.close();
+    }
+
+    // Glass Nocturne desktop comparison
+    {
+      const context = await browser.newContext({
+        viewport: { width: 1440, height: 1100 },
+        deviceScaleFactor: 1,
+        locale: 'zh-CN',
+        timezoneId: 'Asia/Shanghai',
+        reducedMotion: 'reduce',
+      });
+      const page = await preparePage(context, 'glass');
+      const png = path.join(outDir, '_tmp-desktop-glass.png');
+      await page.screenshot({ path: png, fullPage: false });
+      await pngToWebp(png, path.join(outDir, 'admin-dashboard-desktop-glass.webp'), { maxHeight: 1100 });
+      console.log('wrote admin-dashboard-desktop-glass.webp');
+      await context.close();
+    }
+
+    // Mobile overview (Night City default)
     {
       const context = await browser.newContext({
         viewport: { width: 390, height: 844 },
@@ -212,7 +226,7 @@ async function main() {
         timezoneId: 'Asia/Shanghai',
         reducedMotion: 'reduce',
       });
-      const page = await preparePage(context);
+      const page = await preparePage(context, 'aurora');
       const png = path.join(outDir, '_tmp-mobile.png');
       await page.screenshot({ path: png, fullPage: false });
       await pngToWebp(png, path.join(outDir, 'admin-dashboard-mobile.webp'));

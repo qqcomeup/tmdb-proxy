@@ -44,11 +44,21 @@ ghcr.io/qqcomeup/tmdb-proxy:latest
 - Vue 3、本地字体（JetBrains Mono）从容器内 `/admin/vendor/*` 提供，内网/离线更稳
 - 遵循 `prefers-reduced-motion`，减弱动画
 
-截图示例（v3.0 管理面板，空白统计仅展示布局）：
+截图示例（v3.1 管理面板，空白统计仅展示布局）：
 
-### 桌面端总览
+### 桌面端总览（Night City 默认）
 
 ![TMDB Proxy 桌面端管理面板](docs/images/admin-dashboard-desktop.webp)
+
+### 主题对比
+
+**Neo Brutal**
+
+![TMDB Proxy Neo Brutal 主题](docs/images/admin-dashboard-desktop-neo.webp)
+
+**Glass Nocturne**
+
+![TMDB Proxy Glass Nocturne 主题](docs/images/admin-dashboard-desktop-glass.webp)
 
 ### 手机端
 
@@ -58,7 +68,7 @@ ghcr.io/qqcomeup/tmdb-proxy:latest
 
 ![TMDB Proxy 实时日志抽屉](docs/images/admin-dashboard-details.webp)
 
-> 背景可为夜之城动态层或 TMDB 随机背景，实际显示会变化。截图不包含真实密钥、Cookie 或访问日志。
+> 背景可为夜之城动态层或 TMDB 随机背景，实际显示会变化。截图不包含真实密钥、Cookie 或访问日志。主题可在日志抽屉「风格」中切换。
 
 ### 本机访问注意
 
