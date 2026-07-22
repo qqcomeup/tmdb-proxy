@@ -380,24 +380,37 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
 }
 :root[data-theme="neo"] body{
   font-family:var(--mono);
-  background:
-    repeating-linear-gradient(0deg, transparent, transparent 23px, rgba(10,10,10,.04) 23px, rgba(10,10,10,.04) 24px),
-    repeating-linear-gradient(90deg, transparent, transparent 23px, rgba(10,10,10,.04) 23px, rgba(10,10,10,.04) 24px),
-    var(--bg) !important;
+  background-color:var(--bg);
   background-image:
-    repeating-linear-gradient(0deg, transparent, transparent 23px, rgba(10,10,10,.04) 23px, rgba(10,10,10,.04) 24px),
-    repeating-linear-gradient(90deg, transparent, transparent 23px, rgba(10,10,10,.04) 23px, rgba(10,10,10,.04) 24px) !important;
-  background-color:var(--bg) !important;
+    repeating-linear-gradient(0deg, transparent, transparent 23px, rgba(10,10,10,.05) 23px, rgba(10,10,10,.05) 24px),
+    repeating-linear-gradient(90deg, transparent, transparent 23px, rgba(10,10,10,.05) 23px, rgba(10,10,10,.05) 24px);
 }
-:root[data-theme="neo"] body.bg-mode-night,
+/* night wallpaper: keep cyber city layers, paint hard-edge scrim on top */
+:root[data-theme="neo"] body.bg-mode-night{
+  background-color:#0a0a0a !important;
+  background-image:
+    repeating-linear-gradient(0deg, transparent, transparent 23px, rgba(255,255,255,.04) 23px, rgba(255,255,255,.04) 24px),
+    repeating-linear-gradient(90deg, transparent, transparent 23px, rgba(255,255,255,.04) 23px, rgba(255,255,255,.04) 24px) !important;
+}
+:root[data-theme="neo"] body.bg-mode-night .bg-fx{display:block !important;opacity:.9}
+:root[data-theme="neo"] body.bg-mode-night .scanlines{display:block !important;opacity:.2}
+/* TMDB wallpaper: use --bg-image under a light paper scrim + grid */
 :root[data-theme="neo"] body.bg-mode-tmdb{
-  background-color:var(--bg) !important;
+  background-color:#f4f0e6 !important;
   background-image:
-    repeating-linear-gradient(0deg, transparent, transparent 23px, rgba(10,10,10,.04) 23px, rgba(10,10,10,.04) 24px),
-    repeating-linear-gradient(90deg, transparent, transparent 23px, rgba(10,10,10,.04) 23px, rgba(10,10,10,.04) 24px) !important;
+    repeating-linear-gradient(0deg, transparent, transparent 23px, rgba(10,10,10,.05) 23px, rgba(10,10,10,.05) 24px),
+    repeating-linear-gradient(90deg, transparent, transparent 23px, rgba(10,10,10,.05) 23px, rgba(10,10,10,.05) 24px),
+    linear-gradient(180deg, rgba(244,240,230,.72), rgba(244,240,230,.82)),
+    var(--bg-image) !important;
+  background-size:auto, auto, auto, cover !important;
+  background-position:0 0, 0 0, center, center !important;
+  background-repeat:repeat, repeat, no-repeat, no-repeat !important;
+  background-attachment:scroll, scroll, fixed, fixed !important;
 }
-:root[data-theme="neo"] .bg-fx,
-:root[data-theme="neo"] .scanlines{display:none !important}
+:root[data-theme="neo"] body.bg-mode-tmdb .bg-fx{display:none !important}
+:root[data-theme="neo"] body.bg-mode-tmdb .scanlines{display:none !important}
+:root[data-theme="neo"] .bg-fx{z-index:0}
+:root[data-theme="neo"] .scanlines{z-index:1}
 :root[data-theme="neo"] .cp-line{background:var(--ink);opacity:1}
 :root[data-theme="neo"] .cp-line.top,.cp-line.bottom{height:3px}
 :root[data-theme="neo"] .cp-line.left,.cp-line.right{width:3px}
@@ -540,28 +553,46 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
 }
 :root[data-theme="glass"] body{
   font-family:var(--sans);
-  background:
+  background-color:#060a13;
+  background-image:
     radial-gradient(ellipse 70% 55% at 82% 12%, rgba(124,156,196,.28), transparent 55%),
     radial-gradient(ellipse 60% 50% at 12% 88%, rgba(51,81,122,.35), transparent 55%),
     radial-gradient(ellipse 45% 40% at 48% 48%, rgba(228,184,99,.12), transparent 60%),
-    linear-gradient(180deg, #060a13 0%, #0b1322 55%, #070c16 100%) !important;
-  background-color:#060a13 !important;
+    linear-gradient(180deg, #060a13 0%, #0b1322 55%, #070c16 100%);
 }
 :root[data-theme="glass"] body::before{
   content:"";position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.025;
   background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-size:180px 180px;
 }
-:root[data-theme="glass"] body.bg-mode-night,
-:root[data-theme="glass"] body.bg-mode-tmdb{
-  background:
-    radial-gradient(ellipse 70% 55% at 82% 12%, rgba(124,156,196,.28), transparent 55%),
-    radial-gradient(ellipse 60% 50% at 12% 88%, rgba(51,81,122,.35), transparent 55%),
-    radial-gradient(ellipse 45% 40% at 48% 48%, rgba(228,184,99,.12), transparent 60%),
-    linear-gradient(180deg, #060a13 0%, #0b1322 55%, #070c16 100%) !important;
+/* night wallpaper: city layers under glass light-wells */
+:root[data-theme="glass"] body.bg-mode-night{
+  background-color:#060a13 !important;
+  background-image:
+    radial-gradient(ellipse 70% 55% at 82% 12%, rgba(124,156,196,.22), transparent 55%),
+    radial-gradient(ellipse 60% 50% at 12% 88%, rgba(51,81,122,.28), transparent 55%),
+    radial-gradient(ellipse 45% 40% at 48% 48%, rgba(228,184,99,.1), transparent 60%),
+    linear-gradient(180deg, rgba(6,10,19,.35), rgba(7,12,22,.55)) !important;
 }
-:root[data-theme="glass"] .bg-fx,
-:root[data-theme="glass"] .scanlines,
+:root[data-theme="glass"] body.bg-mode-night .bg-fx{display:block !important;opacity:.75;filter:saturate(.85) brightness(.9)}
+:root[data-theme="glass"] body.bg-mode-night .scanlines{display:block !important;opacity:.12}
+/* TMDB wallpaper: poster behind glass panels */
+:root[data-theme="glass"] body.bg-mode-tmdb{
+  background-color:#060a13 !important;
+  background-image:
+    radial-gradient(ellipse 70% 55% at 82% 12%, rgba(124,156,196,.18), transparent 55%),
+    radial-gradient(ellipse 45% 40% at 48% 48%, rgba(228,184,99,.08), transparent 60%),
+    linear-gradient(180deg, rgba(6,10,19,.55), rgba(7,12,22,.72)),
+    var(--bg-image) !important;
+  background-size:auto, auto, auto, cover !important;
+  background-position:center, center, center, center !important;
+  background-repeat:no-repeat !important;
+  background-attachment:fixed !important;
+}
+:root[data-theme="glass"] body.bg-mode-tmdb .bg-fx{display:none !important}
+:root[data-theme="glass"] body.bg-mode-tmdb .scanlines{display:none !important}
+:root[data-theme="glass"] .bg-fx{z-index:0}
+:root[data-theme="glass"] .scanlines{z-index:1}
 :root[data-theme="glass"] .cp-line,
 :root[data-theme="glass"] .cp-corner{display:none !important}
 :root[data-theme="glass"] .brand-mark{
@@ -1290,6 +1321,20 @@ body.bg-mode-tmdb .bg-fx .beam{opacity:.12}
           themeKey.value = found[0];
           document.documentElement.dataset.theme = found[0];
           localStorage.setItem('tmdb_theme', found[0]);
+          // re-apply wallpaper after theme CSS changes (neo/glass used to hide walls)
+          try {
+            if (bgMode.value === 'night') applyNightWall(nightWallIndex.value);
+            else {
+              const stored = localStorage.getItem('tmdb_bg');
+              if (stored) {
+                const parsed = JSON.parse(stored);
+                if (parsed && parsed.path) applyTmdbWall(parsed.path);
+              } else {
+                document.body.classList.add('bg-mode-tmdb');
+                document.body.classList.remove('bg-mode-night');
+              }
+            }
+          } catch (e) {}
         }
         function cycleTheme() {
           const idx = THEMES.findIndex(([key]) => key === themeKey.value);
