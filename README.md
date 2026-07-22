@@ -7,7 +7,7 @@
 - TMDB API 代理：`/3/...`
 - TMDB 图片代理：`/t/p/...`
 - API 缓存、图片内存缓存、图片磁盘缓存
-- 管理面板：`/admin/dashboard`（Vue 3 夜之城 / Night City 风格，单文件 + 本地 vendor）
+- 管理面板：`/admin/dashboard`（Vue 3，三套可切换主题，单文件 + 本地 vendor）
 - Docker / Docker Compose 部署
 - `linux/amd64` 和 `linux/arm64` 多架构镜像
 - GitHub Actions 自动构建并推送 GHCR 镜像
@@ -37,10 +37,10 @@ ghcr.io/qqcomeup/tmdb-proxy:latest
 
 - 默认 **Night City（夜之城）** 多层动态城市场景，支持鼠标视差
 - 壁纸模式：`夜之城` 自绘动态层 / `TMDB` 随机海报背景（使用 `/t/p/w1280`，避免拉 original）
-- 内置三种可切换风格：
-  - `Aurora Glass`：暗色玻璃拟态
-  - `Terminal`：终端运维风
-  - `Swiss Editorial`：浅色排版风
+- 内置三套可切换风格（日志抽屉「风格」按钮循环切换，本地记住）：
+  - `Night City`：夜之城霓虹运维（默认）
+  - `Neo Brutal`：新野兽派（粗黑边、硬阴影、直角）
+  - `Glass Nocturne`：夜航玻璃拟态（深墨毛玻璃 + 香槟金强调）
 - Vue 3、本地字体（JetBrains Mono）从容器内 `/admin/vendor/*` 提供，内网/离线更稳
 - 遵循 `prefers-reduced-motion`，减弱动画
 

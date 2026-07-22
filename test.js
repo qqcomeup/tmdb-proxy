@@ -115,11 +115,11 @@ assert.match(
 assert.match(dashboardHtml, /id=["']details_drawer["']/);
 assert.match(dashboardHtml, /id=["']btn_details["'][^>]*aria-controls=["']details_drawer["'][^>]*aria-expanded=["']false["']/);
 assert.match(dashboardHtml, /id=["']btn_changebg["']/);
-assert.ok(dashboardHtml.includes("['aurora', 'Aurora Glass']"));
-assert.ok(dashboardHtml.includes("['terminal', 'Terminal']"));
-assert.ok(dashboardHtml.includes("['swiss', 'Swiss Editorial']"));
-assert.match(dashboardHtml, /data-theme=["']terminal["']/);
-assert.match(dashboardHtml, /data-theme=["']swiss["']/);
+assert.ok(dashboardHtml.includes("['aurora', 'Night City']"));
+assert.ok(dashboardHtml.includes("['neo', 'Neo Brutal']"));
+assert.ok(dashboardHtml.includes("['glass', 'Glass Nocturne']"));
+assert.match(dashboardHtml, /data-theme=["']neo["']/);
+assert.match(dashboardHtml, /data-theme=["']glass["']/);
 assert.match(dashboardHtml, /prefers-reduced-motion\s*:\s*reduce/);
 assert.match(dashboardHtml, /event\.key\s*===\s*["']Escape["']/);
 // Log filters + labels (feature presence)
